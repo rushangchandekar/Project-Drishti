@@ -62,26 +62,35 @@ class DrishtiDetector:
     def detect(self, frame: np.ndarray) -> DetectionResult:
         """
         Run detection on a single frame
-        
-        Args:
-            frame: BGR image from OpenCV
-            
-        Returns:
-            DetectionResult with all detection info
+        OPTIMIZED: Faster processing with better detection
         """
         timestamp = time.time()
         
-        # Run YOLO inference
-        results = self.model(frame, conf=self.confidence, verbose=False)[0]
+        # OPTIMIZATION 1: Resize for faster processing
+        h, w = frame.shape[:2]
+        frame_resized = cv2.resize(frame, (640, 480))  # Smaller but still good quality
+        
+        # OPTIMIZATION 2: Run YOLO with lower confidence for more detections
+        results = self.model(frame_resized, conf=0.35, verbose=False)[0]  # Lowered from 0.5
         
         # Extract detections
         detections = []
         person_count = 0
         
+        # Scale factor for bounding boxes
+        scale_x = w / 640
+        scale_y = h / 480
+        
         for box in results.boxes:
             class_id = int(box.cls[0])
             confidence = float(box.conf[0])
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            x1, y1, x2, y2 = box.xyxy[0]
+            
+            # Scale back to original frame size
+            x1 = int(x1 * scale_x)
+            y1 = int(y1 * scale_y)
+            x2 = int(x2 * scale_x)
+            y2 = int(y2 * scale_y)
             
             detection = {
                 "class_id": class_id,
@@ -95,16 +104,16 @@ class DrishtiDetector:
             if class_id == self.PERSON_CLASS_ID:
                 person_count += 1
         
-        # Check for fire (color-based detection)
+        # Check for fire
         fire_detected = self._detect_fire(frame)
         
         # Calculate crowd density level
         crowd_density = self._calculate_density_level(person_count)
         
-        # Calculate zone-wise distribution (divide frame into 3x3 grid)
+        # Calculate zone-wise distribution
         zones = self._calculate_zones(frame, detections)
         
-        # Draw detections on frame
+        # Draw detections on ORIGINAL frame (not resized)
         annotated_frame = self._annotate_frame(
             frame.copy(), 
             detections, 

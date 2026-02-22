@@ -181,31 +181,42 @@ class CrowdAnalyzer:
         anomaly: bool,
         rate: float
     ) -> float:
-        """Calculate overall risk score 0-100"""
+        """
+        Calculate overall risk score 0-100
+        IMPROVED: Gradual increase instead of jumps
+        """
         score = 0.0
         
-        # Base score from density
-        density_scores = {
-            "LOW": 10,
-            "MEDIUM": 30,
-            "HIGH": 60,
-            "CRITICAL": 85
-        }
-        score += density_scores.get(density, 0)
+        # CHANGED: Gradual score based on actual person count
+        if count == 0:
+            score = 0  # No people = no risk
+        elif count <= 10:
+            score = count * 1.0  # 1-10 people: 1-10 score
+        elif count <= 25:
+            score = 10 + ((count - 10) * 0.67)  # 11-25: 10-20
+        elif count <= 50:
+            score = 20 + ((count - 25) * 0.8)  # 26-50: 20-40
+        elif count <= 100:
+            score = 40 + ((count - 50) * 0.8)  # 51-100: 40-80
+        else:
+            score = 80 + min((count - 100) * 0.2, 15)  # 100+: 80-95
         
         # Fire is critical
         if fire:
-            score += 50
+            score = max(score, 90)  # Jump to minimum 90
+            score += 10  # Add 10 more
         
         # Anomaly adds risk
         if anomaly:
-            score += 20
+            score += 15
         
         # Rapid increase is risky
-        if rate > 1.0:
+        if rate > 2.0:
             score += 10
+        elif rate > 1.0:
+            score += 5
         
-        return min(100, score)
+        return min(100, max(0, round(score, 1)))
     
     def _generate_recommendation(
         self,
