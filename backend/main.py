@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -34,7 +34,7 @@ from intelligence.context_analyzer import ContextAnalyzer
 
 # Backend internal imports
 from backend.config import get_settings
-from backend.models import QueryRequest, VideoSourceRequest
+from backend.models import QueryRequest, VideoSourceRequest, SystemConfigRequest
 from backend import state
 from backend.video_processing import intelligent_detection_loop
 from backend.video_stream import generate_frames, generate_frames_fast
@@ -166,6 +166,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from fastapi.staticfiles import StaticFiles
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -174,6 +176,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Data folder path (used by list-videos and static mount)
+import os
+data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 
 # ============================================================================
 # API ENDPOINTS
@@ -220,7 +226,11 @@ async def get_status():
             "zones": state.current_state.get("zones", {}),
             "detection_time_ms": state.current_state.get("detection_time_ms", 0),
             "decision_time_ms": state.current_state.get("decision_time_ms", 0),
-            "total_loop_time_ms": state.current_state.get("total_loop_time_ms", 0)
+            "total_loop_time_ms": state.current_state.get("total_loop_time_ms", 0),
+            "venue_name": state.current_state.get("venue_name", "Loading Venue..."),
+            "area_m2": state.current_state.get("area_m2", 0),
+            "recent_agent_actions": state.recent_agent_actions,
+            "autonomous_actions": state.current_state.get("autonomous_actions", [])
         }
 
 @app.get("/video-feed")
@@ -247,6 +257,29 @@ async def get_detailed_state():
             raise HTTPException(status_code=503, detail="No data available")
         
         return {k: v for k, v in state.current_state.items() if k != 'frame'}
+
+@app.post("/agent-callback")
+async def agent_callback(request: Request):
+    """Receive actions taken by n8n agents"""
+    data = await request.json()
+    
+    # Store the action in state
+    import time
+    action_record = {
+        'id': int(time.time() * 1000),
+        'agent': data.get('agent', 'Unknown Agent'),
+        'timestamp': data.get('timestamp', time.strftime("%Y-%m-%dT%H:%M:%S")),
+        'status': data.get('status', 'EXECUTED'),
+        'data': data
+    }
+    
+    with state.frame_lock:
+        state.recent_agent_actions.insert(0, action_record)
+        # Keep only the latest 50 actions to prevent memory growth
+        if len(state.recent_agent_actions) > 50:
+            state.recent_agent_actions.pop()
+            
+    return {"success": True, "message": "Action logged"}
 
 @app.get("/n8n-status")
 async def get_n8n_status():
@@ -374,15 +407,16 @@ async def get_summary():
 @app.get("/list-videos")
 async def list_videos():
     """List available videos"""
-    data_path = Path("../data")
-    data_path.mkdir(exist_ok=True)
-    
     videos = []
-    for file in data_path.glob("*"):
+    for file in Path(data_dir).glob("*"):
         if file.suffix.lower() in ['.mp4', '.avi', '.mov', '.mkv']:
+            size = file.stat().st_size
+            # Skip screen recordings and very large files (>20MB)
+            if size > 20 * 1024 * 1024:
+                continue
             videos.append({
                 "name": file.name,
-                "path": str(file),
+                "path": str(file.resolve()),
                 "size": file.stat().st_size
             })
     
@@ -435,6 +469,49 @@ async def switch_source(request: VideoSourceRequest):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/configure")
+async def configure_system(request: SystemConfigRequest):
+    """Configure venue and switch video source"""
+    try:
+        # Convert sq ft to sq meters
+        area_m2 = request.square_feet * 0.092903
+        state.density_calculator.calibrate(area_m2)
+        
+        # Release current video
+        if state.video_capture:
+            state.video_capture.release()
+            await asyncio.sleep(0.5)
+            
+        # Open new source
+        if request.video_source_type == "webcam":
+            state.video_capture = cv2.VideoCapture(0)
+            source_name = "Webcam"
+        else:
+            state.video_capture = cv2.VideoCapture(request.video_path)
+            source_name = Path(request.video_path).name
+            
+        if not state.video_capture.isOpened():
+            raise HTTPException(status_code=400, detail="Cannot open video source")
+            
+        state.video_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        
+        # Save venue properties to state
+        with state.frame_lock:
+            state.current_state['venue_name'] = request.venue_name
+            state.current_state['area_m2'] = float(area_m2)
+            
+        return {
+            "success": True,
+            "venue_name": request.venue_name,
+            "source": source_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Mount data folder for video previews (MUST be after all API routes)
+if os.path.exists(data_dir):
+    app.mount("/data", StaticFiles(directory=data_dir), name="data")
 
 if __name__ == "__main__":
     import uvicorn

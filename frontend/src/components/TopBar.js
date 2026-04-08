@@ -1,89 +1,56 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-    MapPin, Clock, Radio, RefreshCw, AlertTriangle, Edit2, Check, X
+  MapPin, Clock, Radio, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 function TopBar({ status, liveTime, formatTime }) {
-    const [venueName, setVenueName] = useState("Main Venue - Section Alpha");
-    const [isEditing, setIsEditing] = useState(false);
-    const [tempName, setTempName] = useState(venueName);
+  return (
+    <header className="topbar">
+      <div className="topbar-left">
+        <h1 className="project-title">
+          <span className="gradient-text">DRISHTI</span>
+          <span className="subtitle">Crowd Intelligence System</span>
+        </h1>
+      </div>
 
-    const handleEditClick = () => {
-        setTempName(venueName);
-        setIsEditing(true);
-    };
+      <div className="topbar-center">
+        <div className="location-badge">
+          <MapPin size={16} />
+          <div className="venue-display">
+            <span>{status.venue_name || "Configuring Venue..."}</span>
+          </div>
+        </div>
 
-    const handleSave = () => {
-        setVenueName(tempName);
-        setIsEditing(false);
-    };
+        <div className="live-badge">
+          <div className="live-dot" />
+          <span>LIVE</span>
+          <Clock size={14} />
+          <span className="live-time">{formatTime(liveTime)}</span>
+        </div>
 
-    const handleCancel = () => {
-        setIsEditing(false);
-    };
+        <div className="status-badge" data-status={status.connected ? 'online' : 'offline'}>
+          <Radio size={14} />
+          <span>{status.connected ? 'System Online' : 'Disconnected'}</span>
+        </div>
+      </div>
 
-    return (
-        <header className="topbar">
-            <div className="topbar-left">
-                <h1 className="project-title">
-                    <span className="gradient-text">DRISHTI</span>
-                    <span className="subtitle">Crowd Intelligence System</span>
-                </h1>
-            </div>
+      <div className="topbar-right">
+        <button className="icon-btn" title="Refresh" onClick={() => window.location.reload()}>
+          <RefreshCw size={20} />
+        </button>
 
-            <div className="topbar-center">
-                <div className="location-badge">
-                    <MapPin size={16} />
-                    {isEditing ? (
-                        <div className="edit-venue-container">
-                            <input
-                                type="text"
-                                value={tempName}
-                                onChange={(e) => setTempName(e.target.value)}
-                                className="venue-input"
-                                autoFocus
-                            />
-                            <button onClick={handleSave} className="edit-btn save"><Check size={14} /></button>
-                            <button onClick={handleCancel} className="edit-btn cancel"><X size={14} /></button>
-                        </div>
-                    ) : (
-                        <div className="venue-display" onClick={handleEditClick} title="Click to edit">
-                            <span>{venueName}</span>
-                            <Edit2 size={12} className="edit-icon" />
-                        </div>
-                    )}
-                </div>
+        <motion.button
+          className="btn btn-danger manual-override"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <AlertTriangle size={18} />
+          Manual Override
+        </motion.button>
+      </div>
 
-                <div className="live-badge">
-                    <div className="live-dot" />
-                    <span>LIVE</span>
-                    <Clock size={14} />
-                    <span className="live-time">{formatTime(liveTime)}</span>
-                </div>
-
-                <div className="status-badge" data-status={status.connected ? 'online' : 'offline'}>
-                    <Radio size={14} />
-                    <span>{status.connected ? 'System Online' : 'Disconnected'}</span>
-                </div>
-            </div>
-
-            <div className="topbar-right">
-                <button className="icon-btn" title="Refresh" onClick={() => window.location.reload()}>
-                    <RefreshCw size={20} />
-                </button>
-
-                <motion.button
-                    className="btn btn-danger manual-override"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                >
-                    <AlertTriangle size={18} />
-                    Manual Override
-                </motion.button>
-            </div>
-
-            <style>{`
+      <style>{`
         .topbar {
           height: var(--topbar-height);
           background: var(--bg-secondary);
@@ -248,8 +215,8 @@ function TopBar({ status, liveTime, formatTime }) {
           padding: 10px 18px;
         }
       `}</style>
-        </header>
-    );
+    </header>
+  );
 }
 
 export default TopBar;

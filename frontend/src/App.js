@@ -8,9 +8,14 @@ import SpatialMap from './components/SpatialMap';
 import VideoPreview from './components/VideoPreview';
 import CameraSwitcher from './components/CameraSwitcher';
 import AlertPanel from './components/AlertPanel';
+import AgentFeedPanel from './components/AgentFeedPanel';
 import GlassmorphismChat from './components/GlassmorphismChat';
+import SetupWizard from './components/SetupWizard';
 
 function App() {
+  // Setup state
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
+
   // State management
   const [status, setStatus] = useState({
     person_count: 0,
@@ -33,6 +38,7 @@ function App() {
   });
 
   const [alerts, setAlerts] = useState([]);
+  const [agentFeed, setAgentFeed] = useState([]);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
   const [chatMessages, setChatMessages] = useState([
@@ -72,6 +78,10 @@ function App() {
           addAlert('warning', 'High Risk Alert', `Risk score elevated to ${data.risk_score}`, 'ForecastAgent');
         }
 
+        if (data.recent_agent_actions) {
+          setAgentFeed(data.recent_agent_actions);
+        }
+
         setStatus({ ...data, connected: true });
       } catch (error) {
         console.error('Status fetch error:', error);
@@ -79,10 +89,12 @@ function App() {
       }
     };
 
+    if (!isSetupComplete) return;
+
     fetchStatus();
     const interval = setInterval(fetchStatus, 2000);
     return () => clearInterval(interval);
-  }, [status.fire_detected, status.density_level, status.anomaly_detected, status.risk_score]);
+  }, [status.fire_detected, status.density_level, status.anomaly_detected, status.risk_score, isSetupComplete]);
 
   // Live timer
   useEffect(() => {
@@ -210,6 +222,10 @@ function App() {
     setIsHeatmapMain(!isHeatmapMain);
   };
 
+  if (!isSetupComplete) {
+    return <SetupWizard onComplete={() => setIsSetupComplete(true)} />;
+  }
+
   return (
     <div className="dashboard">
       <div className="main-content">
@@ -232,11 +248,14 @@ function App() {
             />
           </div>
 
-          <AlertPanel
-            alerts={filteredAlerts}
-            alertFilter={alertFilter}
-            setAlertFilter={setAlertFilter}
-          />
+          <div className="side-panels">
+            <AgentFeedPanel agentFeed={agentFeed} />
+            <AlertPanel
+              alerts={filteredAlerts}
+              alertFilter={alertFilter}
+              setAlertFilter={setAlertFilter}
+            />
+          </div>
         </div>
 
         <CameraSwitcher
@@ -307,6 +326,20 @@ function App() {
           padding: 20px;
           gap: 20px;
           overflow: hidden;
+        }
+
+        .side-panels {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          height: 100%;
+          min-width: 320px;
+          max-width: 340px;
+        }
+
+        .side-panels > * {
+          flex: 1;
+          min-height: 0;
         }
 
         .map-container {

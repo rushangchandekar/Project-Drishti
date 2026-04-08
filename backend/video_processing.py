@@ -8,6 +8,8 @@ from backend.config import get_settings
 from backend import state
 from backend.webhooks import trigger_webhook
 
+from backend.twilio_service import send_emergency_whatsapp
+
 settings = get_settings()
 
 def _annotate_frame_complete(frame, crowd_result, fire_result, density_metrics, 
@@ -143,9 +145,10 @@ def _run_detection_sync(frame):
 
     # ===== STEP 4: DETERMINE WHICH N8N WEBHOOKS TO TRIGGER =====
     webhooks_to_fire = []
+    autonomous_actions = []
 
     if fire_result.detected:
-        webhooks_to_fire.append(('fire-alert', {
+        webhooks_to_fire.append(('emergency-alert', {
             'event': 'fire_detected',
             'confidence': float(fire_result.confidence),
             'person_count': crowd_result['person_count'],
@@ -153,9 +156,10 @@ def _run_detection_sync(frame):
             'severity': 'CRITICAL',
             'timestamp': time.time()
         }))
+        autonomous_actions.extend(["Activating Fire Sprinklers", "Contacting Local Fire Station", "Sent Emergency WhatsApp Admin Alert", "SOS Alarm Raised"])
 
     if density_metrics.level in ('CRITICAL', 'VERY_HIGH'):
-        webhooks_to_fire.append(('crowd-alert', {
+        webhooks_to_fire.append(('crowd-security-alert', {
             'event': 'high_density',
             'density_level': density_metrics.level,
             'person_count': crowd_result['person_count'],
@@ -163,9 +167,11 @@ def _run_detection_sync(frame):
             'risk_score': float(analysis.risk_score),
             'timestamp': time.time()
         }))
+        if density_metrics.level == 'CRITICAL':
+            autonomous_actions.extend(["Opening Emergency Exit Doors", "Dispatching Crowd Control Security", "Sent Emergency WhatsApp Admin Alert", "SOS Alarm Raised"])
 
     if anomaly_result.detected:
-        webhooks_to_fire.append(('anomaly-alert', {
+        webhooks_to_fire.append(('crowd-security-alert', {
             'event': 'anomaly_detected',
             'anomaly_type': str(anomaly_result.anomaly_type),
             'severity': str(anomaly_result.severity),
@@ -175,7 +181,7 @@ def _run_detection_sync(frame):
         }))
 
     if analysis.risk_score > 80:
-        webhooks_to_fire.append(('security-alert', {
+        webhooks_to_fire.append(('intelligence-alert', {
             'event': 'high_risk',
             'risk_score': float(analysis.risk_score),
             'density_level': density_metrics.level,
@@ -202,7 +208,8 @@ def _run_detection_sync(frame):
         'decision': decision,
         'webhooks_to_fire': webhooks_to_fire,
         'annotated_frame': annotated_frame,
-        'loop_time': loop_time
+        'loop_time': loop_time,
+        'autonomous_actions': list(set(autonomous_actions)) # deduplicate
     }
 
 
@@ -216,8 +223,11 @@ async def intelligent_detection_loop():
 
     frame_count = 0
     last_detection_time = 0
+    last_twilio_alert_time = 0
+    last_detect_cache = None
     min_detection_interval = 1.0 / 10  # Max 10 detections per second
     WEBHOOK_COOLDOWN = 10  # seconds between same webhook type
+    TWILIO_COOLDOWN = 60 # 1 minute cooldown for WhatsApp messages
 
     try:
         while True:
@@ -236,15 +246,30 @@ async def intelligent_detection_loop():
                 frame_count += 1
                 current_time = time.time()
 
-                # Skip frames for performance
+                # Determine if we should skip heavy detection for this frame
+                skip_heavy = False
                 if frame_count % state.DETECTION_FRAME_SKIP != 0:
-                    with state.frame_lock:
-                        state.current_state['frame'] = frame.copy()
-                    await asyncio.sleep(0.01)
-                    continue
+                    skip_heavy = True
+                elif current_time - last_detection_time < min_detection_interval:
+                    skip_heavy = True
 
-                # Rate limit detections
-                if current_time - last_detection_time < min_detection_interval:
+                if skip_heavy:
+                    if last_detect_cache:
+                        # Re-annotate the fresh frame with the cached bounding boxes to prevent blinking
+                        annotated = _annotate_frame_complete(
+                            frame, 
+                            last_detect_cache['crowd_result'], 
+                            last_detect_cache['fire_result'], 
+                            last_detect_cache['density_metrics'], 
+                            last_detect_cache['anomaly_result'], 
+                            last_detect_cache['analysis']
+                        )
+                        with state.frame_lock:
+                            state.current_state['frame'] = annotated
+                    else:
+                        with state.frame_lock:
+                            state.current_state['frame'] = frame.copy()
+                    
                     await asyncio.sleep(0.01)
                     continue
 
@@ -252,6 +277,7 @@ async def intelligent_detection_loop():
 
                 # ===== OFFLOAD ALL HEAVY WORK TO THREAD =====
                 result = await asyncio.to_thread(_run_detection_sync, frame)
+                last_detect_cache = result
 
                 crowd_result = result['crowd_result']
                 fire_result = result['fire_result']
@@ -263,6 +289,16 @@ async def intelligent_detection_loop():
                 webhooks_to_fire = result['webhooks_to_fire']
                 annotated_frame = result['annotated_frame']
                 loop_time = result['loop_time']
+                autonomous_actions = result['autonomous_actions']
+
+                # ===== TRIGGER TWILIO WHATSAPP ON CRITICAL =====
+                should_trigger_twilio = fire_result.detected or density_metrics.level == 'CRITICAL'
+                if should_trigger_twilio and (current_time - last_twilio_alert_time > TWILIO_COOLDOWN):
+                    alert_type = 'FIRE EMERGENCY' if fire_result.detected else 'CRITICAL CROWD DENSITY'
+                    details = f"Risk Score {analysis.risk_score}/100. People Count: {crowd_result['person_count']}."
+                    # Run synchronously in thread so we don't stall
+                    asyncio.create_task(asyncio.to_thread(send_emergency_whatsapp, alert_type, details))
+                    last_twilio_alert_time = current_time
 
                 # ===== SEND WEBHOOKS TO N8N (with cooldown) =====
                 webhooks_sent = 0
@@ -300,6 +336,7 @@ async def intelligent_detection_loop():
                         'decision_time_ms': float(decision.get('decision_time_ms', 0)),
                         'total_loop_time_ms': float(loop_time),
                         'frame': annotated_frame,
+                        'autonomous_actions': autonomous_actions,
                         'timestamp': time.time()
                     }
 

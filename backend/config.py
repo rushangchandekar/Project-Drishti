@@ -22,6 +22,12 @@ class Settings(BaseSettings):
         default="http://localhost:5678/webhook",
         description="Base URL for n8n webhooks"
     )
+
+    # Twilio Configuration
+    TWILIO_ACCOUNT_SID: str = Field(default="", description="Twilio Account SID")
+    TWILIO_AUTH_TOKEN: str = Field(default="", description="Twilio Auth Token")
+    TWILIO_FROM_NUMBER: str = Field(default="", description="Twilio Registered Sender Number")
+    TWILIO_TO_NUMBER: str = Field(default="", description="Admin Receiver Number")
     
     # Detection Settings
     DETECTION_CONFIDENCE: float = Field(

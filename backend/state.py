@@ -29,6 +29,7 @@ decision_intelligence = None
 # System state variables
 video_capture = None
 current_state = {}
+recent_agent_actions = []
 detection_task = None
 frame_lock = threading.Lock()  # Thread-safe frame access
 
