@@ -20,14 +20,6 @@ from fastapi.middleware.cors import CORSMiddleware
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Detection imports
-from detection.yolo_detector import DrishtiDetector
-from detection.fire_detector import AdvancedFireDetector
-from detection.enhanced_crowd_detector import EnhancedCrowdDetector
-from detection.density_calculator import IntelligentDensityCalculator
-from detection.anomaly_detector import CrowdAnomalyDetector
-from detection.crowd_analyzer import CrowdAnalyzer
-
 # Intelligence imports
 from intelligence.decision_engine import DecisionIntelligence
 from intelligence.context_analyzer import ContextAnalyzer
@@ -51,88 +43,33 @@ async def lifespan(app: FastAPI):
     """Application lifespan management"""
     
     print("\n" + "="*70)
-    print("🚀 PROJECT DRISHTI - COMPLETE SYSTEM STARTUP (OPTIMIZED)")
+    print("PROJECT DRISHTI - COMPLETE SYSTEM STARTUP (LIGHTWEIGHT)")
     print("="*70)
     
-    # ===== DETECTION LAYER =====
-    print("\n[1/5] 🔍 Initializing Detection Layer...")
-    
-    state.detector = DrishtiDetector(
-        model_path=settings.YOLO_MODEL_PATH,
-        confidence=settings.DETECTION_CONFIDENCE,
-        crowd_threshold_warning=settings.CROWD_THRESHOLD_WARNING,
-        crowd_threshold_critical=settings.CROWD_THRESHOLD_CRITICAL
-    )
-    
-    state.fire_detector = AdvancedFireDetector(mode='hybrid')
-    state.crowd_detector = EnhancedCrowdDetector(enable_tracking=True)
-    state.density_calculator = IntelligentDensityCalculator(mode='uncalibrated', venue_type='general')
-    state.anomaly_detector = CrowdAnomalyDetector()
-    state.crowd_analyzer = CrowdAnalyzer()
-    
-    print("   ✅ Detection layer ready")
-    
     # ===== INTELLIGENCE LAYER =====
-    print("\n[2/5] 🧠 Initializing Intelligence Layer...")
+    print("\n[1/2] Initializing Intelligence Layer...")
     
     state.context_analyzer = ContextAnalyzer()
     
     try:
         state.decision_intelligence = DecisionIntelligence(gemini_api_key=settings.GEMINI_API_KEY)
-        print("   ✅ Decision intelligence ready (with Gemini)")
+        print("   [OK] Decision intelligence ready (with Gemini)")
     except Exception as e:
         state.decision_intelligence = DecisionIntelligence(gemini_api_key=None)
-        print(f"   ⚠️  Decision intelligence ready (without Gemini): {e}")
+        print(f"   [WARN] Decision intelligence ready (without Gemini): {e}")
     
-    print(f"   🤖 n8n Webhook Base: {settings.N8N_WEBHOOK_BASE_URL}")
-    
-    # ===== VIDEO SOURCE =====
-    print("\n[3/5] 📹 Initializing Video Source...")
-    
-    video_source = settings.VIDEO_SOURCE
-    if video_source.isdigit():
-        video_source = int(video_source)
-    
-    state.video_capture = cv2.VideoCapture(video_source)
-    
-    # Optimize video capture settings
-    if state.video_capture.isOpened():
-        state.video_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffer
-        state.video_capture.set(cv2.CAP_PROP_FPS, 30)
-        print(f"   ✅ Video source opened: {video_source}")
-    else:
-        print(f"   ❌ Failed to open video source: {video_source}")
+    print(f"   [INFO] n8n Webhook Base: {settings.N8N_WEBHOOK_BASE_URL}")
     
     # ===== BACKGROUND TASKS =====
-    print("\n[4/5] ⚙️  Starting Background Tasks...")
+    print("\n[2/2] Starting Background Tasks...")
     
     state.detection_task = asyncio.create_task(intelligent_detection_loop())
-    print("   ✅ Intelligent detection loop started")
-    
-    # ===== SYSTEM CHECK =====
-    print("\n[5/5] ✅ System Health Check...")
-    print(f"   • Stream Quality: {state.STREAM_QUALITY}%")
-    print(f"   • Stream FPS: {state.STREAM_FPS}")
-    print(f"   • Frame Skip: {state.DETECTION_FRAME_SKIP}")
-    print(f"   • Max Width: {state.MAX_STREAM_WIDTH}px")
-    
-    health = {
-        'Detection': state.detector is not None,
-        'Fire Detection': state.fire_detector is not None,
-        'Crowd Analysis': state.crowd_detector is not None,
-        'Intelligence': state.decision_intelligence is not None,
-        'n8n Webhooks': True,
-        'Video': state.video_capture.isOpened() if state.video_capture else False
-    }
-    
-    for component, h_status in health.items():
-        symbol = "✅" if h_status else "❌"
-        print(f"   {symbol} {component}")
+    print("   [OK] Intelligent detection loop created (running in background)")
     
     print("\n" + "="*70)
-    print("✨ PROJECT DRISHTI IS FULLY OPERATIONAL!")
-    print(f"📡 API available at: http://localhost:{settings.PORT}")
-    print(f"📊 Dashboard: http://localhost:{settings.PORT}/video-feed")
+    print("PROJECT DRISHTI IS FULLY OPERATIONAL!")
+    print(f"API available at: http://localhost:{settings.PORT}")
+    print(f"Dashboard: http://localhost:{settings.PORT}/video-feed")
     print("="*70 + "\n")
     
     # ===== RUN =====
@@ -193,7 +130,6 @@ async def root():
         "service": "Project Drishti",
         "version": "3.0.0",
         "components": {
-            "detection": state.detector is not None,
             "fire_detection": state.fire_detector is not None,
             "crowd_analysis": state.crowd_detector is not None,
             "intelligence": state.decision_intelligence is not None,

@@ -15,7 +15,6 @@ ENABLE_FRAME_RESIZE = True   # Resize frames for streaming
 # ============================================================================
 
 # Detection components (Initialized in lifespan)
-detector = None
 fire_detector = None
 crowd_detector = None
 density_calculator = None

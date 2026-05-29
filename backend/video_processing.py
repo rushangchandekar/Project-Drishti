@@ -221,6 +221,58 @@ async def intelligent_detection_loop():
     """
     print("[INTELLIGENT LOOP] Started (Optimized - threaded)")
 
+    # 1. Initialize heavy CV/AI components in background thread to keep startup instant
+    def init_heavy_components():
+        try:
+            from detection.enhanced_crowd_detector import EnhancedCrowdDetector
+            from detection.fire_detector import AdvancedFireDetector
+            from detection.density_calculator import IntelligentDensityCalculator
+            from detection.anomaly_detector import CrowdAnomalyDetector
+            from detection.crowd_analyzer import CrowdAnalyzer
+            
+            print("\n[BACKGROUND INIT] Initializing heavy components...")
+            
+            if not state.crowd_detector:
+                print("   [BACKGROUND INIT] Loading YOLOv8 model for EnhancedCrowdDetector...")
+                state.crowd_detector = EnhancedCrowdDetector(enable_tracking=True)
+            if not state.fire_detector:
+                state.fire_detector = AdvancedFireDetector(mode='hybrid')
+            if not state.density_calculator:
+                state.density_calculator = IntelligentDensityCalculator(mode='uncalibrated', venue_type='general')
+            if not state.anomaly_detector:
+                state.anomaly_detector = CrowdAnomalyDetector()
+            if not state.crowd_analyzer:
+                state.crowd_analyzer = CrowdAnalyzer()
+                
+            # Initialize video source if not opened
+            if not state.video_capture:
+                video_source = settings.VIDEO_SOURCE
+                if video_source.isdigit():
+                    video_source = int(video_source)
+                print(f"   [BACKGROUND INIT] Opening video source: {video_source}")
+                state.video_capture = cv2.VideoCapture(video_source)
+                if state.video_capture.isOpened():
+                    state.video_capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    state.video_capture.set(cv2.CAP_PROP_FPS, 30)
+                    print(f"   [BACKGROUND INIT] Video source opened successfully: {video_source}")
+                else:
+                    print(f"   [BACKGROUND INIT] Warning: Could not open video source: {video_source}")
+            return True
+        except Exception as e:
+            print(f"   [BACKGROUND INIT] Error during heavy component initialization: {e}")
+            traceback.print_exc()
+            return False
+
+    print("   [BACKGROUND INIT] Initializing YOLO and OpenCV in background thread...")
+    init_success = False
+    while not init_success:
+        init_success = await asyncio.to_thread(init_heavy_components)
+        if not init_success:
+            print("   [BACKGROUND INIT] Initialization failed. Retrying in 2 seconds...")
+            await asyncio.sleep(2)
+            
+    print("   [BACKGROUND INIT] All heavy CV and AI components initialized successfully!\n")
+
     frame_count = 0
     last_detection_time = 0
     last_twilio_alert_time = 0
