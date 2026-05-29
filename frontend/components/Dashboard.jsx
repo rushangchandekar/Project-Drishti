@@ -13,7 +13,7 @@ import NotificationScreen from './notifications/NotificationScreen';
 import { useSystemStatus } from '../hooks/useSystemStatus';
 
 export default function Dashboard() {
-  const { status, alerts, agentFeed, autonomousActions } = useSystemStatus(true);
+  const { status, alerts, agentFeed, autonomousActions, agentStatuses } = useSystemStatus(true);
   const [liveTime, setLiveTime] = useState(0); 
   const [cameras, setCameras] = useState([{ id: 'cam0', name: 'Main Gate (Webcam)', type: 'webcam', path: '0', agent: 'VisionAgent', src: 'http://localhost:8000/video-feed' }]);
   const [activeCamera, setActiveCamera] = useState(null);
@@ -101,7 +101,7 @@ export default function Dashboard() {
           
           {activeTab === 'ai' ? (
             <div style={{ flex: 1, display: 'flex', padding: '20px', overflow: 'hidden' }}>
-              <AgentExecutionPanel agentFeed={agentFeed} />
+              <AgentExecutionPanel agentFeed={agentFeed} agentStatuses={agentStatuses} />
             </div>
           ) : activeTab === 'alerts' ? (
             <div style={{ flex: 1, display: 'flex', padding: '20px', overflow: 'hidden' }}>

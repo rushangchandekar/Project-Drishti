@@ -166,6 +166,7 @@ async def get_status():
             "venue_name": state.current_state.get("venue_name", "Loading Venue..."),
             "area_m2": state.current_state.get("area_m2", 0),
             "recent_agent_actions": state.recent_agent_actions,
+            "agents_active": state.current_state.get("agents_active", 0),
             "autonomous_actions": state.current_state.get("autonomous_actions", [])
         }
 
@@ -193,6 +194,12 @@ async def get_detailed_state():
             raise HTTPException(status_code=503, detail="No data available")
         
         return {k: v for k, v in state.current_state.items() if k != 'frame'}
+
+@app.get("/agent-statuses")
+async def get_agent_statuses():
+    """Get current statuses of all 9 agents"""
+    with state.frame_lock:
+        return state.agent_statuses
 
 @app.post("/agent-callback")
 async def agent_callback(request: Request):

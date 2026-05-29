@@ -24,6 +24,7 @@ export function useSystemStatus(isSetupComplete) {
   const [alerts, setAlerts] = useState([]);
   const [agentFeed, setAgentFeed] = useState([]);
   const [autonomousActions, setAutonomousActions] = useState([]);
+  const [agentStatuses, setAgentStatuses] = useState({});
   
   // Track previous critical states via refs (not state) to avoid stale closures
   const prevFireRef = useRef(false);
@@ -77,8 +78,15 @@ export function useSystemStatus(isSetupComplete) {
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch('http://localhost:8000/status');
-        const data = await response.json();
+        const [statusRes, agentsRes] = await Promise.all([
+          fetch('http://localhost:8000/status'),
+          fetch('http://localhost:8000/agent-statuses')
+        ]);
+        
+        const data = await statusRes.json();
+        const agentData = await agentsRes.json();
+        
+        setAgentStatuses(agentData);
 
         // Detect transitions using refs (guaranteed fresh values)
         const fireJustStarted = data.fire_detected && !prevFireRef.current;
@@ -129,5 +137,5 @@ export function useSystemStatus(isSetupComplete) {
     return () => clearInterval(interval);
   }, [isSetupComplete, playSOS]);
 
-  return { status, alerts, agentFeed, autonomousActions, setAlerts };
+  return { status, alerts, agentFeed, autonomousActions, agentStatuses, setAlerts };
 }

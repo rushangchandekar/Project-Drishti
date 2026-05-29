@@ -1,0 +1,593 @@
+{
+  "name": "Project Drishti - 9 AI Agents Workspace",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-fire",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-fire",
+      "name": "Webhook: FireAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Fire Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Activated industrial water sprinklers in affected zones, opened smart ventilation hatches, and automatically dispatched emergency fire services (ETA 5 mins).\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-fire",
+      "name": "Callback: FireAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [300, 100]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"FireAgent\",\n  \"action_executed\": \"Sprinklers activated, fire alarm sounded, fire department emergency dispatch completed.\"\n}"
+      },
+      "id": "respond-fire",
+      "name": "Respond: FireAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 100]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-crowd",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-crowd",
+      "name": "Webhook: CrowdAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Crowd Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Calibrated digital toll gates, closed critical entry barriers, and redirected inbound flow to secondary turnstiles.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-crowd",
+      "name": "Callback: CrowdAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [300, 260]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"CrowdAgent\",\n  \"action_executed\": \"Entry barriers restricted, digital gates toggled to exit-only flow, crowd speed indicators calibrated.\"\n}"
+      },
+      "id": "respond-crowd",
+      "name": "Respond: CrowdAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 260]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-evac",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-evac",
+      "name": "Webhook: EvacAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Evac Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Released electromagnetic locks on all secondary fire exits, lit up path-finding LED floor strips, and initialized the Public Address system with automated clear voice routing guidance.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-evac",
+      "name": "Callback: EvacAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [300, 420]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"EvacAgent\",\n  \"action_executed\": \"Electromagnetic emergency exit locks disabled, escape direction LEDs enabled, automated PA voice synthesis broadcasted.\"\n}"
+      },
+      "id": "respond-evac",
+      "name": "Respond: EvacAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [500, 420]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-anomaly",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-anomaly",
+      "name": "Webhook: AnomalyAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [800, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Anomaly Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Flagged irregular group velocity, focused zoom cameras to the exact sector coordinates, and dispatched immediate visual verification prompt to on-site supervisors.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-anomaly",
+      "name": "Callback: AnomalyAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 100]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"AnomalyAgent\",\n  \"action_executed\": \"Visual behavior flagged, targeted zone cameras zoomed, alerts routed to supervisors dashboard.\"\n}"
+      },
+      "id": "respond-anomaly",
+      "name": "Respond: AnomalyAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 100]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-forecast",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-forecast",
+      "name": "Webhook: ForecastAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [800, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Forecast Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Calculated 15-minute crowd density projection curves, alerted logistics staff of potential gates congestion, and stabilized risk score multipliers.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-forecast",
+      "name": "Callback: ForecastAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 260]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"ForecastAgent\",\n  \"action_executed\": \"15-minute prediction matrices processed, bottlenecks reported to operational managers.\"\n}"
+      },
+      "id": "respond-forecast",
+      "name": "Respond: ForecastAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 260]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-medic",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-medic",
+      "name": "Webhook: MedicAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [800, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Medic Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Placed the central medical office on emergency stand-by, coordinated ambulance staging bays, and readied response carts.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-medic",
+      "name": "Callback: MedicAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 420]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"MedicAgent\",\n  \"action_executed\": \"Medical emergency responders signaled, ambulance access corridor cleared.\"\n}"
+      },
+      "id": "respond-medic",
+      "name": "Respond: MedicAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1200, 420]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-dispatch",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-dispatch",
+      "name": "Webhook: DispatchAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [1500, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Dispatch Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Dispatched emergency support team and tactical officers to critical zones. Set communication radios to Priority-1 emergency channels.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-dispatch",
+      "name": "Callback: DispatchAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1700, 100]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"DispatchAgent\",\n  \"action_executed\": \"Support teams dispatched, priority-one voice channels active, tracking logs enabled.\"\n}"
+      },
+      "id": "respond-dispatch",
+      "name": "Respond: DispatchAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1900, 100]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-llm",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-llm",
+      "name": "Webhook: LLMAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [1500, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"LLM Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Summarized current crowd patterns, evaluated high-risk factors, compiled situation brief, and dispatched incident report to command center.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-llm",
+      "name": "Callback: LLMAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1700, 260]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"LLMAgent\",\n  \"action_executed\": \"Incident report compiled and strategic sitrep published to command console.\"\n}"
+      },
+      "id": "respond-llm",
+      "name": "Respond: LLMAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1900, 260]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-security",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-security",
+      "name": "Webhook: SecurityAgent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [1500, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/agent-callback",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent\": \"Security Agent\",\n  \"status\": \"EXECUTED\",\n  \"trigger_reason\": \"{{ $json.body.trigger_reason }}\",\n  \"action_taken\": \"Armed perimeter door magnetic locks, locked down non-essential elevators, and signaled security checkpoints.\",\n  \"data\": {{ JSON.stringify($json.body) }}\n}",
+        "options": {}
+      },
+      "id": "callback-security",
+      "name": "Callback: SecurityAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1700, 420]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"success\": true,\n  \"agent_id\": \"SecurityAgent\",\n  \"action_executed\": \"Access control lockdown activated, elevators locked, perimeter checkpoints alarmed.\"\n}"
+      },
+      "id": "respond-security",
+      "name": "Respond: SecurityAgent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1900, 420]
+    }
+  ],
+  "connections": {
+    "Webhook: FireAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: FireAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: FireAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: FireAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: CrowdAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: CrowdAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: CrowdAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: CrowdAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: EvacAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: EvacAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: EvacAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: EvacAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: AnomalyAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: AnomalyAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: AnomalyAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: AnomalyAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: ForecastAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: ForecastAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: ForecastAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: ForecastAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: MedicAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: MedicAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: MedicAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: MedicAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: DispatchAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: DispatchAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: DispatchAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: DispatchAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: LLMAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: LLMAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: LLMAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: LLMAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: SecurityAgent": {
+      "main": [
+        [
+          {
+            "node": "Callback: SecurityAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback: SecurityAgent": {
+      "main": [
+        [
+          {
+            "node": "Respond: SecurityAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "drishti-9-agents"
+}

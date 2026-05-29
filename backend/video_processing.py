@@ -6,7 +6,8 @@ from typing import Dict, Any
 
 from backend.config import get_settings
 from backend import state
-from backend.webhooks import trigger_webhook
+from backend.webhooks import trigger_webhook, invoke_agent_webhook
+from intelligence.agent_orchestrator import AGENT_REGISTRY
 
 from backend.twilio_service import send_emergency_whatsapp
 
@@ -143,52 +144,26 @@ def _run_detection_sync(frame):
     # ===== STEP 3: RULE-BASED GUIDANCE =====
     decision = state.decision_intelligence.make_decision(context)
 
-    # ===== STEP 4: DETERMINE WHICH N8N WEBHOOKS TO TRIGGER =====
-    webhooks_to_fire = []
+    # ===== STEP 4: AGENT ORCHESTRATOR — RULE-BASED SELECTION =====
+    selected_agents = {}
     autonomous_actions = []
 
-    if fire_result.detected:
-        webhooks_to_fire.append(('emergency-alert', {
-            'event': 'fire_detected',
-            'confidence': float(fire_result.confidence),
-            'person_count': crowd_result['person_count'],
-            'locations': [list(b) for b in fire_result.bounding_boxes],
-            'severity': 'CRITICAL',
-            'timestamp': time.time()
-        }))
+    if state.agent_orchestrator:
+        selected_agents = state.agent_orchestrator.rule_based_selection(context)
+
+    # Derive autonomous actions from selected agents
+    if 'FireAgent' in selected_agents:
         autonomous_actions.extend(["Activating Fire Sprinklers", "Contacting Local Fire Station", "Sent Emergency WhatsApp Admin Alert", "SOS Alarm Raised"])
+    if 'EvacAgent' in selected_agents:
+        autonomous_actions.extend(["Opening Emergency Exit Doors", "Activating PA System"])
+    if 'CrowdAgent' in selected_agents and density_metrics.level == 'CRITICAL':
+        autonomous_actions.extend(["Dispatching Crowd Control Security", "SOS Alarm Raised"])
+    if 'MedicAgent' in selected_agents:
+        autonomous_actions.extend(["Medical Team on Standby", "Ambulance Notified"])
+    if 'DispatchAgent' in selected_agents:
+        autonomous_actions.extend(["Dispatching Security Personnel"])
 
-    if density_metrics.level in ('CRITICAL', 'VERY_HIGH'):
-        webhooks_to_fire.append(('crowd-security-alert', {
-            'event': 'high_density',
-            'density_level': density_metrics.level,
-            'person_count': crowd_result['person_count'],
-            'zones': crowd_result['zones'],
-            'risk_score': float(analysis.risk_score),
-            'timestamp': time.time()
-        }))
-        if density_metrics.level == 'CRITICAL':
-            autonomous_actions.extend(["Opening Emergency Exit Doors", "Dispatching Crowd Control Security", "Sent Emergency WhatsApp Admin Alert", "SOS Alarm Raised"])
-
-    if anomaly_result.detected:
-        webhooks_to_fire.append(('crowd-security-alert', {
-            'event': 'anomaly_detected',
-            'anomaly_type': str(anomaly_result.anomaly_type),
-            'severity': str(anomaly_result.severity),
-            'affected_zones': anomaly_result.affected_zones,
-            'person_count': crowd_result['person_count'],
-            'timestamp': time.time()
-        }))
-
-    if analysis.risk_score > 80:
-        webhooks_to_fire.append(('intelligence-alert', {
-            'event': 'high_risk',
-            'risk_score': float(analysis.risk_score),
-            'density_level': density_metrics.level,
-            'person_count': crowd_result['person_count'],
-            'recommendation': str(analysis.recommendation),
-            'timestamp': time.time()
-        }))
+    autonomous_actions = list(set(autonomous_actions))
 
     # ===== STEP 5: ANNOTATE FRAME =====
     annotated_frame = _annotate_frame_complete(
@@ -206,10 +181,11 @@ def _run_detection_sync(frame):
         'analysis': analysis,
         'context': context,
         'decision': decision,
-        'webhooks_to_fire': webhooks_to_fire,
+        'selected_agents': selected_agents,
         'annotated_frame': annotated_frame,
         'loop_time': loop_time,
-        'autonomous_actions': list(set(autonomous_actions)) # deduplicate
+        'autonomous_actions': autonomous_actions,
+        'raw_frame': frame,  # Keep raw frame for Gemini Vision
     }
 
 
@@ -243,6 +219,14 @@ async def intelligent_detection_loop():
                 state.anomaly_detector = CrowdAnomalyDetector()
             if not state.crowd_analyzer:
                 state.crowd_analyzer = CrowdAnalyzer()
+            if not state.agent_orchestrator:
+                from intelligence.agent_orchestrator import AgentOrchestrator, _build_initial_agent_statuses
+                print("   [BACKGROUND INIT] Initializing AgentOrchestrator...")
+                gemini_client = None
+                if state.decision_intelligence and state.decision_intelligence.gemini:
+                    gemini_client = state.decision_intelligence.gemini.client
+                state.agent_orchestrator = AgentOrchestrator(gemini_client=gemini_client)
+                state.agent_statuses = _build_initial_agent_statuses()
                 
             # Initialize video source if not opened
             if not state.video_capture:
@@ -338,7 +322,6 @@ async def intelligent_detection_loop():
                 analysis = result['analysis']
                 context = result['context']
                 decision = result['decision']
-                webhooks_to_fire = result['webhooks_to_fire']
                 annotated_frame = result['annotated_frame']
                 loop_time = result['loop_time']
                 autonomous_actions = result['autonomous_actions']
@@ -348,20 +331,113 @@ async def intelligent_detection_loop():
                 if should_trigger_twilio and (current_time - last_twilio_alert_time > TWILIO_COOLDOWN):
                     alert_type = 'FIRE EMERGENCY' if fire_result.detected else 'CRITICAL CROWD DENSITY'
                     details = f"Risk Score {analysis.risk_score}/100. People Count: {crowd_result['person_count']}."
-                    # Run synchronously in thread so we don't stall
                     asyncio.create_task(asyncio.to_thread(send_emergency_whatsapp, alert_type, details))
                     last_twilio_alert_time = current_time
 
-                # ===== SEND WEBHOOKS TO N8N (with cooldown) =====
+                # ===== AGENT ORCHESTRATOR — INVOKE SELECTED AGENTS =====
+                selected_agents = result.get('selected_agents', {})
+                raw_frame = result.get('raw_frame')
                 webhooks_sent = 0
-                for webhook_path, payload in webhooks_to_fire:
-                    last_sent = state._last_webhook_times.get(webhook_path, 0)
-                    if current_time - last_sent >= WEBHOOK_COOLDOWN:
-                        url = f"{settings.N8N_WEBHOOK_BASE_URL}/{webhook_path}"
-                        asyncio.create_task(trigger_webhook(url, payload))
-                        state._last_webhook_times[webhook_path] = current_time
-                        webhooks_sent += 1
-                        state.performance_metrics['total_webhooks_sent'] += 1
+
+                if selected_agents and state.agent_orchestrator:
+                    # Gemini Vision analysis for critical situations only
+                    if (state.agent_orchestrator.is_critical_situation(context)
+                            and state.agent_orchestrator.can_call_vision()):
+                        ai_agents = await asyncio.to_thread(
+                            state.agent_orchestrator.gemini_vision_selection,
+                            context, raw_frame
+                        )
+                        selected_agents = state.agent_orchestrator.merge_selections(
+                            selected_agents, ai_agents
+                        )
+                        method = 'hybrid'
+                    else:
+                        method = 'rules'
+
+                    # Log orchestration
+                    state.agent_orchestrator.log_orchestration(
+                        selected_agents, method, context
+                    )
+
+                    # Build common payload for agents
+                    agent_payload = {
+                        'person_count': int(crowd_result['person_count']),
+                        'density_level': str(density_metrics.level),
+                        'risk_score': float(analysis.risk_score),
+                        'fire_detected': bool(fire_result.detected),
+                        'fire_confidence': float(fire_result.confidence),
+                        'anomaly_detected': bool(anomaly_result.detected),
+                        'anomaly_type': str(anomaly_result.anomaly_type) if anomaly_result.anomaly_type else None,
+                        'anomaly_severity': str(anomaly_result.severity),
+                        'trend': state.anomaly_detector.get_trend(),
+                        'zones': {k: int(v) for k, v in crowd_result['zones'].items()},
+                        'situation_severity': str(context['situation_severity']),
+                        'recommendation': str(analysis.recommendation),
+                        'strategic_guidance': str(decision['strategic_guidance']),
+                        'timestamp': time.time(),
+                    }
+
+                    # Invoke agents concurrently (with per-agent cooldown)
+                    agent_tasks = []
+                    for agent_id, reason in selected_agents.items():
+                        last_sent = state._last_webhook_times.get(agent_id, 0)
+                        if current_time - last_sent >= WEBHOOK_COOLDOWN:
+                            agent_info = AGENT_REGISTRY.get(agent_id, {})
+                            webhook_path = agent_info.get('webhook_path', '')
+                            if not webhook_path:
+                                continue
+
+                            # Mark agent as running
+                            with state.frame_lock:
+                                if agent_id in state.agent_statuses:
+                                    state.agent_statuses[agent_id]['status'] = 'running'
+                                    state.agent_statuses[agent_id]['trigger_reason'] = reason
+                                    state.agent_statuses[agent_id]['last_invoked'] = time.strftime('%Y-%m-%dT%H:%M:%S')
+
+                            payload_with_reason = {**agent_payload, 'agent_id': agent_id, 'trigger_reason': reason}
+                            agent_tasks.append(invoke_agent_webhook(agent_id, webhook_path, payload_with_reason))
+                            state._last_webhook_times[agent_id] = current_time
+
+                    if agent_tasks:
+                        agent_results = await asyncio.gather(*agent_tasks, return_exceptions=True)
+
+                        for ar in agent_results:
+                            if isinstance(ar, Exception):
+                                continue
+                            aid = ar.get('agent_id')
+                            if not aid or aid not in state.agent_statuses:
+                                continue
+
+                            with state.frame_lock:
+                                st = state.agent_statuses[aid]
+                                if ar.get('success'):
+                                    st['status'] = 'completed'
+                                    st['last_result'] = ar.get('response')
+                                    st['last_error'] = None
+                                else:
+                                    st['status'] = 'error'
+                                    st['last_result'] = None
+                                    st['last_error'] = ar.get('error')
+                                st['execution_time_ms'] = ar.get('execution_time_ms', 0)
+                                st['last_completed'] = time.strftime('%Y-%m-%dT%H:%M:%S')
+                                st['invocation_count'] = st.get('invocation_count', 0) + 1
+
+                            # Also log as an agent action for the feed
+                            action_record = {
+                                'id': int(time.time() * 1000),
+                                'agent': AGENT_REGISTRY.get(aid, {}).get('name', aid),
+                                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                                'status': 'EXECUTED' if ar.get('success') else 'FAILED',
+                                'data': ar.get('response') or {'error': ar.get('error')},
+                                'trigger_reason': state.agent_statuses.get(aid, {}).get('trigger_reason', ''),
+                            }
+                            with state.frame_lock:
+                                state.recent_agent_actions.insert(0, action_record)
+                                if len(state.recent_agent_actions) > 50:
+                                    state.recent_agent_actions.pop()
+
+                            webhooks_sent += 1
+                            state.performance_metrics['total_webhooks_sent'] += 1
 
                 # ===== UPDATE STATE (Thread-safe) =====
                 with state.frame_lock:
@@ -389,6 +465,7 @@ async def intelligent_detection_loop():
                         'total_loop_time_ms': float(loop_time),
                         'frame': annotated_frame,
                         'autonomous_actions': autonomous_actions,
+                        'agents_active': len([s for s in state.agent_statuses.values() if s.get('status') in ('running', 'completed')]),
                         'timestamp': time.time()
                     }
 
@@ -397,10 +474,12 @@ async def intelligent_detection_loop():
 
                 # Log status (less frequently)
                 if frame_count % 30 == 0:
+                    active_agents = len(selected_agents)
                     print(f"\r[LIVE] People: {crowd_result['person_count']:3d} | "
                           f"Density: {density_metrics.level:12s} | "
                           f"Risk: {analysis.risk_score:5.1f} | "
                           f"Fire: {'YES' if fire_result.detected else 'NO ':3s} | "
+                          f"Agents: {active_agents} | "
                           f"Time: {loop_time:5.0f}ms",
                           end="")
 

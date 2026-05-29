@@ -53,3 +53,82 @@ async def query_n8n_agent(question: str, context: Dict[str, Any]) -> Optional[st
         )
         return answer
     return None
+
+
+async def invoke_agent_webhook(
+    agent_id: str,
+    webhook_path: str,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Invoke a specific agent's n8n webhook and return a structured result.
+    
+    Returns:
+        {
+            "agent_id": str,
+            "success": bool,
+            "response": dict | None,
+            "execution_time_ms": float,
+            "error": str | None
+        }
+    """
+    url = f"{settings.N8N_WEBHOOK_BASE_URL}/{webhook_path}"
+    start_time = time.time()
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, timeout=15.0)
+            execution_time = (time.time() - start_time) * 1000
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                except Exception:
+                    data = {"raw_response": response.text}
+                
+                print(f"\n[AGENT] {agent_id} completed in {execution_time:.0f}ms")
+                return {
+                    "agent_id": agent_id,
+                    "success": True,
+                    "response": data,
+                    "execution_time_ms": round(execution_time, 1),
+                    "error": None,
+                }
+            else:
+                print(f"\n[AGENT] {agent_id} failed: HTTP {response.status_code}")
+                return {
+                    "agent_id": agent_id,
+                    "success": False,
+                    "response": None,
+                    "execution_time_ms": round(execution_time, 1),
+                    "error": f"HTTP {response.status_code}",
+                }
+    except httpx.ConnectError:
+        execution_time = (time.time() - start_time) * 1000
+        print(f"\n[AGENT] {agent_id} connection refused - is n8n running?")
+        return {
+            "agent_id": agent_id,
+            "success": False,
+            "response": None,
+            "execution_time_ms": round(execution_time, 1),
+            "error": "Connection refused (n8n not running?)",
+        }
+    except httpx.TimeoutException:
+        execution_time = (time.time() - start_time) * 1000
+        return {
+            "agent_id": agent_id,
+            "success": False,
+            "response": None,
+            "execution_time_ms": round(execution_time, 1),
+            "error": "Timeout",
+        }
+    except Exception as e:
+        execution_time = (time.time() - start_time) * 1000
+        return {
+            "agent_id": agent_id,
+            "success": False,
+            "response": None,
+            "execution_time_ms": round(execution_time, 1),
+            "error": str(e),
+        }
+

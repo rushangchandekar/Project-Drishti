@@ -25,6 +25,10 @@ crowd_analyzer = None
 context_analyzer = None
 decision_intelligence = None
 
+# Agent orchestrator
+agent_orchestrator = None
+agent_statuses = {}  # Populated by agent_orchestrator._build_initial_agent_statuses()
+
 # System state variables
 video_capture = None
 current_state = {}
