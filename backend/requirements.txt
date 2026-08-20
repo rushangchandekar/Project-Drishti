@@ -1,5 +1,7 @@
 # requirements.txt
 
+lap==0.5.12
+
 # Computer Vision
 ultralytics==8.2.0
 opencv-python==4.9.0.80
@@ -27,4 +29,4 @@ sqlalchemy>=2.0.0
 
 # Authentication
 PyJWT>=2.8.0
-passlib[bcrypt]>=1.7.4
+passlib[bcrypt]>=1.7.4

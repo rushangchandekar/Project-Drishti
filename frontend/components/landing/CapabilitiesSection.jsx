@@ -20,7 +20,7 @@ const CAPABILITIES = [
     id: '3',
     title: 'Fire & Hazard Detection',
     category: 'Safety Systems',
-    image: 'https://images.unsplash.com/photo-1486551937199-baf066858de7?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1516550893923-42d28e5677af?q=80&w=1200&auto=format&fit=crop',
     spanClass: 'lp-cap-span-5',
   },
   {

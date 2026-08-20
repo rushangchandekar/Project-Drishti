@@ -74,8 +74,79 @@ const getAgentIcon = (iconName, color, size = 20) => {
   }
 };
 
-export default function AgentExecutionPanel({ agentStatuses = {}, agentFeed = [] }) {
+export default function AgentExecutionPanel({ agentStatuses = {}, agentFeed = [], liveStatus = {} }) {
   const [expandedTrace, setExpandedTrace] = useState(null);
+
+  // Derive a live status message from the current detection frame for each agent
+  const getLiveAgentMessage = (agentId) => {
+    const s = liveStatus;
+    if (!s || !s.connected) return null;
+
+    switch (agentId) {
+      case 'FireAgent':
+        if (s.fire_detected)
+          return `🔥 Fire detected (confidence ${Math.round((s.fire_confidence || 0) * 100)}%)`;
+        return null;
+
+      case 'CrowdAgent': {
+        const count = s.person_count ?? 0;
+        const density = s.density_level || '';
+        if (['CRITICAL', 'VERY_HIGH', 'HIGH'].includes(density))
+          return `${count} people detected — Density: ${density}`;
+        if (count > 0)
+          return `Monitoring ${count} people — ${density || 'NORMAL'}`;
+        return null;
+      }
+
+      case 'EvacAgent':
+        if (s.fire_detected) return 'Evacuation required due to fire';
+        if (['CRITICAL', 'VERY_HIGH'].includes(s.density_level))
+          return `Evacuation standby — ${s.density_level} density`;
+        if (s.activities && s.activities.some(a => a.type === 'PANIC' || a.type === 'STAMPEDE'))
+          return 'Stampede detected — PA system activated';
+        return null;
+
+      case 'AnomalyAgent':
+        if (s.anomaly_detected && s.anomaly_type)
+          return `Anomaly: ${s.anomaly_type}`;
+        if (s.anomaly_detected)
+          return 'Unusual crowd pattern detected';
+        return null;
+
+      case 'ForecastAgent': {
+        const risk = Math.round(s.risk_score || 0);
+        const trend = s.trend || 'STABLE';
+        return `Risk ${risk}/100, trend ${trend}`;
+      }
+
+      case 'MedicAgent': {
+        const medAct = s.activities && s.activities.find(a => a.type === 'FALL' || a.type === 'STAMPEDE');
+        if (medAct) return medAct.description || `${medAct.type} detected`;
+        return null;
+      }
+
+      case 'DispatchAgent': {
+        const fightAct = s.activities && s.activities.find(a => a.type === 'FIGHT');
+        if (fightAct) return fightAct.description || 'Fight/altercation detected';
+        if (s.anomaly_severity === 'CRITICAL') return 'Critical anomaly — security dispatched';
+        return null;
+      }
+
+      case 'LLMAgent':
+        if (s.strategic_guidance && s.strategic_guidance !== 'NORMAL OPERATIONS: Continue routine surveillance.')
+          return `High risk (${Math.round(s.risk_score || 0)}) — generate situation report`;
+        return null;
+
+      case 'SecurityAgent':
+        if (s.anomaly_detected && s.anomaly_type)
+          return `High-severity anomaly: ${s.anomaly_type}`;
+        if ((s.risk_score || 0) > 75) return `High risk score (${Math.round(s.risk_score)}) — perimeter alert`;
+        return null;
+
+      default:
+        return null;
+    }
+  };
 
   const normalizeCategory = (cat) => {
     if (!cat) return 'operations';
@@ -90,6 +161,7 @@ export default function AgentExecutionPanel({ agentStatuses = {}, agentFeed = []
   const mergedAgents = {};
   Object.entries(defaultAgents).forEach(([id, def]) => {
     const raw = agentStatuses[id] || {};
+    const liveMessage = getLiveAgentMessage(id);
     mergedAgents[id] = {
       agent_id: id,
       status: raw.status || (raw.invocations > 0 ? 'completed' : 'idle'),
@@ -98,12 +170,15 @@ export default function AgentExecutionPanel({ agentStatuses = {}, agentFeed = []
       last_invoked: raw.last_invoked || null,
       last_result: raw.last_result || null,
       last_error: raw.last_error || null,
-      trigger_reason: raw.trigger_reason || null,
       ...def,
       ...raw,
+      // These always override the spread — live message takes priority over stale trigger_reason
+      trigger_reason: liveMessage ?? raw.trigger_reason ?? null,
+      is_live_message: liveMessage !== null,
       category: normalizeCategory(raw.category || def.category)
     };
   });
+
 
   const emergencyAgents = Object.values(mergedAgents).filter(a => a.category === 'emergency');
   const intelligenceAgents = Object.values(mergedAgents).filter(a => a.category === 'intelligence');
@@ -355,7 +430,7 @@ function AgentCard({ agent, cfg }) {
             </div>
           ) : isCompleted ? (
             <span style={{ fontSize: '10px', color: '#4ade80', background: 'rgba(74, 222, 128, 0.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(74, 222, 128, 0.15)', fontWeight: 600 }}>
-              {agent.execution_time_ms ? `${agent.execution_time_ms}ms` : 'Ready'}
+              {agent.execution_time_ms ? `${parseFloat(agent.execution_time_ms).toFixed(1)}ms` : 'Ready'}
             </span>
           ) : isError ? (
             <span style={{ fontSize: '10px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.15)', fontWeight: 600 }}>
@@ -376,24 +451,63 @@ function AgentCard({ agent, cfg }) {
       </p>
 
       {/* Trigger Context/Reason */}
-      {agent.trigger_reason && (
-        <div style={{ 
-          background: isError ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255, 255, 255, 0.02)', 
-          border: `1px solid ${isError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255, 255, 255, 0.04)'}`, 
-          borderRadius: '6px', 
-          padding: '6px 10px', 
-          fontSize: '11px', 
-          color: isError ? '#f87171' : '#cbd5e1', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '6px'
-        }}>
-          {isError ? <AlertCircle size={12} color="#ef4444" /> : <Clock size={12} color="#9ca3af" />}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-            {isError ? `Error: ${agent.last_error || 'Execution failed'}` : `Active: ${agent.trigger_reason}`}
-          </span>
-        </div>
-      )}
+      {agent.trigger_reason && (() => {
+        const isLive = agent.is_live_message;
+        const hasError = isError;
+        let bgColor = 'rgba(255, 255, 255, 0.02)';
+        let borderColor = 'rgba(255, 255, 255, 0.04)';
+        let textColor = '#9ca3af';
+        let dotColor = null;
+        let label = 'Last Active';
+
+        if (hasError) {
+          bgColor = 'rgba(239, 68, 68, 0.05)';
+          borderColor = 'rgba(239, 68, 68, 0.15)';
+          textColor = '#f87171';
+          label = 'Error';
+        } else if (isLive) {
+          bgColor = 'rgba(74, 222, 128, 0.06)';
+          borderColor = 'rgba(74, 222, 128, 0.25)';
+          textColor = '#86efac';
+          dotColor = '#4ade80';
+          label = 'Active Now';
+        }
+
+        return (
+          <div style={{
+            background: bgColor,
+            border: `1px solid ${borderColor}`,
+            borderRadius: '6px',
+            padding: '6px 10px',
+            fontSize: '11px',
+            color: textColor,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.3s ease'
+          }}>
+            {hasError ? (
+              <AlertCircle size={12} color="#ef4444" />
+            ) : isLive ? (
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: dotColor,
+                boxShadow: `0 0 6px ${dotColor}`,
+                animation: 'pulse 1.5s infinite',
+                flexShrink: 0
+              }} />
+            ) : (
+              <Clock size={12} color="#6b7280" />
+            )}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+              <span style={{ fontWeight: 700, marginRight: '4px', opacity: 0.7 }}>{label}:</span>
+              {hasError ? (agent.last_error || 'Execution failed') : agent.trigger_reason}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Performance Mini Stats */}
       {agent.invocation_count > 0 && (

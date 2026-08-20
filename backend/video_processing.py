@@ -125,7 +125,9 @@ def _run_detection_sync(frame):
     loop_start = time.time()
 
     # ===== STEP 1: DETECTION =====
-    crowd_result = state.crowd_detector.detect(frame, conf_threshold=0.35)
+    # FIXED: now uses settings.DETECTION_CONFIDENCE instead of a hardcoded value,
+    # so it can be tuned via .env without code changes.
+    crowd_result = state.crowd_detector.detect(frame, conf_threshold=settings.DETECTION_CONFIDENCE)
     fire_result = state.fire_detector.detect(frame)
 
     density_metrics = state.density_calculator.calculate(
@@ -262,15 +264,26 @@ async def intelligent_detection_loop():
             
             if not state.crowd_detector:
                 print("   [BACKGROUND INIT] Loading YOLOv11 model for EnhancedCrowdDetector...")
+                # FIXED: now passes model_path (was previously ignored, always defaulted
+                # to hardcoded "yolo11n.pt" inside EnhancedCrowdDetector regardless of
+                # what was set in .env). Also wires up the tracker choice (ByteTrack/BoT-SORT).
                 state.crowd_detector = EnhancedCrowdDetector(
+                    model_path=settings.YOLO_MODEL_PATH,
                     enable_tracking=True,
                     input_size=settings.YOLO_INPUT_SIZE,
                     half_precision=settings.YOLO_HALF_PRECISION,
                     max_detections=settings.YOLO_MAX_DETECTIONS,
-                    nms_iou=settings.YOLO_NMS_IOU
+                    nms_iou=settings.YOLO_NMS_IOU,
+                    tracker=settings.YOLO_TRACKER
                 )
             if not state.fire_detector:
-                state.fire_detector = AdvancedFireDetector(mode='hybrid')
+                state.fire_detector = AdvancedFireDetector(
+                    mode=settings.FIRE_MODE,
+                    color_threshold=settings.FIRE_COLOR_THRESHOLD,
+                    brightness_min=settings.FIRE_BRIGHTNESS_MIN,
+                    temporal_consistency=settings.FIRE_TEMPORAL_CONSISTENCY,
+                    confidence_threshold=settings.FIRE_CONFIDENCE_THRESHOLD
+                )
             if not state.density_calculator:
                 state.density_calculator = IntelligentDensityCalculator(mode='uncalibrated', venue_type='general')
             if not state.anomaly_detector:
@@ -337,6 +350,13 @@ async def intelligent_detection_loop():
                 ret, frame = await asyncio.to_thread(state.video_capture.read)
                 if not ret:
                     state.video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    # FIXED: reset tracker + activity history on video loop restart.
+                    # Without this, stale track IDs/Kalman state from the end of the
+                    # video could bleed into the new pass, and activity_recognizer's
+                    # id_history could mix pre/post-loop data for a reused ID.
+                    state.crowd_detector.reset_tracker()
+                    if state.activity_recognizer:
+                        state.activity_recognizer.reset()
                     await asyncio.sleep(0.1)
                     continue
 

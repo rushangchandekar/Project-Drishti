@@ -101,7 +101,7 @@ export default function Dashboard() {
           
           {activeTab === 'ai' ? (
             <div style={{ flex: 1, display: 'flex', padding: '20px', overflow: 'hidden' }}>
-              <AgentExecutionPanel agentFeed={agentFeed} agentStatuses={agentStatuses} />
+              <AgentExecutionPanel agentFeed={agentFeed} agentStatuses={agentStatuses} liveStatus={status} />
             </div>
           ) : activeTab === 'alerts' ? (
             <div style={{ flex: 1, display: 'flex', padding: '20px', overflow: 'hidden' }}>

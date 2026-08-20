@@ -1,3 +1,21 @@
+# PERMANENT FIX: Force all subprocesses to use venv Python, not Store Python
+import sys
+import os
+
+# Set environment variables BEFORE importing Ultralytics
+os.environ['PYTHONPATH'] = sys.executable
+os.environ['ULTRALYTICS_CHECK_UPDATE'] = 'False'
+os.environ['YOLOv5_VERBOSE'] = 'False'
+
+# Force subprocess calls to use venv Python
+if hasattr(sys, 'base_prefix'):
+    venv_python = os.path.join(os.path.dirname(sys.executable), 'python.exe')
+    os.environ['PYTHON'] = venv_python
+
+# ===== NOW import everything else =====
+
+
+
 """
 backend/main.py
 Project Drishti - Integrated Backend

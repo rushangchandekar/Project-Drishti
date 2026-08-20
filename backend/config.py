@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     
     # Detection Settings
     DETECTION_CONFIDENCE: float = Field(
-        default=0.5,
-        description="YOLO detection confidence threshold"
+        default=0.35,
+        description="YOLO detection confidence threshold (lower = catches more, but more false positives)"
     )
     CROWD_THRESHOLD_WARNING: int = Field(
         default=50,
@@ -78,6 +78,35 @@ class Settings(BaseSettings):
     YOLO_NMS_IOU: float = Field(
         default=0.45,
         description="NMS IoU threshold for suppressing overlapping boxes"
+    )
+
+    # Tracking Settings
+    YOLO_TRACKER: str = Field(
+        default="bytetrack.yaml",
+        description="Ultralytics tracker config: 'bytetrack.yaml' (fast, motion-only) "
+                     "or 'botsort.yaml' (slower, includes Re-ID — better for dense/occluded crowds)"
+    )
+
+    # Fire Detection Settings (consumed by AdvancedFireDetector)
+    FIRE_MODE: str = Field(
+        default="hybrid",
+        description="Fire detection mode: 'color', 'motion', or 'hybrid'"
+    )
+    FIRE_COLOR_THRESHOLD: float = Field(
+        default=0.008,
+        description="Minimum fraction of frame pixels classified as fire-colored to trigger detection"
+    )
+    FIRE_BRIGHTNESS_MIN: int = Field(
+        default=130,
+        description="Minimum average brightness (0-255) for a region to be classified as fire"
+    )
+    FIRE_TEMPORAL_CONSISTENCY: float = Field(
+        default=0.5,
+        description="Fraction of recent frames that must show fire for hybrid mode to confirm"
+    )
+    FIRE_CONFIDENCE_THRESHOLD: float = Field(
+        default=0.6,
+        description="Minimum confidence required to report a confirmed fire detection"
     )
 
     # Multi-Stream Settings
@@ -142,6 +171,9 @@ if __name__ == "__main__":
         print("\n✅ Configuration loaded successfully!")
         print(f"N8N Base URL: {settings.N8N_WEBHOOK_BASE_URL}")
         print(f"Crowd Warning Threshold: {settings.CROWD_THRESHOLD_WARNING}")
+        print(f"Detection Confidence: {settings.DETECTION_CONFIDENCE}")
+        print(f"YOLO Tracker: {settings.YOLO_TRACKER}")
+        print(f"Fire Mode: {settings.FIRE_MODE}")
         
         # Only show first 10 chars of API key for security
         api_key_preview = settings.GEMINI_API_KEY[:10] + "..." if len(settings.GEMINI_API_KEY) > 10 else "TOO_SHORT"

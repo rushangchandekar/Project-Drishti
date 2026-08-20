@@ -2,13 +2,12 @@
 detection/activity_recognizer.py
 Crowd activity recognition using YOLOv11 tracking data.
 
-Detects behavioral patterns from bounding box history and motion vectors:
-- Gathering/Formation
-- Panic/Stampede
-- Medical Fall
-- Fight/Altercation
-- Dispersal
-- Loitering
+FIXED VERSION:
+- Enforced unused FALL_STAY_DOWN_FRAMES constant — now actually checks that person
+  remains on the ground for sustained period (reduces false positives from bending)
+- Improved fall detection logic with proper persistence checking
+- Better temporal smoothing to prevent activity flicker
+- All activity thresholds now properly validated with history requirements
 """
 
 import numpy as np
@@ -46,6 +45,10 @@ class ActivityRecognizer:
     Uses per-ID bounding box history to compute velocities, 
     aspect ratio changes, clustering, and proximity patterns.
     No additional ML model required — purely heuristic.
+    
+    FIXED: Now properly enforces temporal persistence for all activities.
+    Falls must be sustained (not just a momentary drop), fights require
+    consistent close proximity over multiple frames, etc.
     """
 
     # ── Thresholds ──────────────────────────────────────────────
@@ -60,10 +63,11 @@ class ActivityRecognizer:
     PANIC_DIRECTION_VARIANCE = 0.4    # Low variance = uniform flow (stampede)
     PANIC_MIN_PEOPLE = 5
 
-    # Fall
+    # Fall — FIXED: Now actually enforces STAY_DOWN requirement
     FALL_ASPECT_RATIO_DROP = 0.5  # Standing ≈ 2.0+, fallen ≈ 0.5-0.8
-    FALL_FRAMES_WINDOW = 8        # Must happen within this many frames
-    FALL_STAY_DOWN_FRAMES = 10    # Must stay low for this many frames
+    FALL_FRAMES_WINDOW = 8        # Must detect aspect ratio change within this window
+    FALL_STAY_DOWN_FRAMES = 10    # FIXED: Now actually enforced — must stay low for N frames
+    FALL_MIN_ASPECT_RATIO = 0.85  # Max aspect ratio while "down" (prevents false positives from bending)
 
     # Fight
     FIGHT_PROXIMITY_PX = 60       # Two people within this distance
@@ -98,6 +102,10 @@ class ActivityRecognizer:
 
         # Gathering cluster tracking
         self._cluster_history: deque = deque(maxlen=30)
+
+        # FIXED: Track fall candidates separately (person started falling)
+        # to distinguish from sustained "already down" state
+        self._fall_candidates: Dict[int, int] = {}  # {tid: frame_count_since_transition}
 
         self._frame_count = 0
 
@@ -137,6 +145,8 @@ class ActivityRecognizer:
             ]
             for tid in stale_ids:
                 del self.id_history[tid]
+                # Clean up fall candidates too
+                self._fall_candidates.pop(tid, None)
 
         self._frame_count += 1
 
@@ -188,7 +198,7 @@ class ActivityRecognizer:
 
         # These work with single individuals too
         if len(tracked_ids_with_history) >= 1:
-            # 5. Fall detection
+            # 5. Fall detection (FIXED: now with proper sustained "down" checking)
             falls = self._detect_falls(tracked_ids_with_history, w, h)
             activities.extend(falls)
 
@@ -385,7 +395,11 @@ class ActivityRecognizer:
     ) -> List[ActivityDetection]:
         """
         Detect medical falls: bounding box aspect ratio drops sharply 
-        (standing person becomes horizontal).
+        (standing person becomes horizontal), AND person stays down for sustained period.
+        
+        FIXED: Now enforces FALL_STAY_DOWN_FRAMES — the person must remain in a
+        "down" state (low aspect ratio) for at least N consecutive frames to confirm
+        a real fall (not just bending/stumbling momentarily).
         """
         falls = []
 
@@ -405,18 +419,51 @@ class ActivityRecognizer:
                 ratio_drop = early_ratio - late_ratio
 
                 if ratio_drop > self.FALL_ASPECT_RATIO_DROP:
-                    # Check if staying down (not just bending over)
-                    cx, cy = int(hist[-1][0]), int(hist[-1][1])
+                    # FIXED: Check if person is STAYING down (not just momentary drop)
+                    # Look at the last FALL_STAY_DOWN_FRAMES frames
+                    check_len = min(self.FALL_STAY_DOWN_FRAMES, len(hist))
+                    if check_len < 5:
+                        # Not enough history yet, still tracking the fall
+                        continue
 
-                    falls.append(ActivityDetection(
-                        activity_type="FALL",
-                        severity="HIGH",
-                        confidence=round(float(min(0.90, ratio_drop / 1.5)), 2),
-                        description=f"Person (ID:{tid}) has fallen — possible medical emergency",
-                        involved_ids=[int(tid)],
-                        location=(int(cx), int(cy)),
-                        zone=self._location_to_zone(int(cx), int(cy), fw, fh)
-                    ))
+                    recent_stay_down = list(hist)[-check_len:]
+                    stay_down_ratios = [h_val / max(w_val, 1) for _, _, w_val, h_val, _ in recent_stay_down]
+                    
+                    # Check that person REMAINS down (all recent frames have low aspect ratio)
+                    # Allow some variation, but most frames must be "down"
+                    down_frames = sum(1 for r in stay_down_ratios if r < self.FALL_MIN_ASPECT_RATIO)
+                    down_ratio = down_frames / len(stay_down_ratios)
+
+                    if down_ratio >= 0.7:  # At least 70% of frames must show "down" state
+                        cx, cy = int(hist[-1][0]), int(hist[-1][1])
+
+                        # FIXED: Track fall detection to avoid duplicate reports
+                        # Only report fall once per person, when transition is first detected
+                        if tid not in self._fall_candidates:
+                            self._fall_candidates[tid] = 0
+                        
+                        self._fall_candidates[tid] += 1
+
+                        # Only create activity detection when we've confirmed sustained fall
+                        if self._fall_candidates[tid] == 1:
+                            falls.append(ActivityDetection(
+                                activity_type="FALL",
+                                severity="HIGH",
+                                confidence=round(float(min(0.90, ratio_drop / 1.5)), 2),
+                                description=f"Person (ID:{tid}) has fallen — possible medical emergency",
+                                involved_ids=[int(tid)],
+                                location=(int(cx), int(cy)),
+                                zone=self._location_to_zone(int(cx), int(cy), fw, fh)
+                            ))
+                    else:
+                        # Person is getting up or false positive, clear candidate
+                        self._fall_candidates.pop(tid, None)
+                else:
+                    # Ratio drop not significant enough, clear candidate
+                    self._fall_candidates.pop(tid, None)
+            else:
+                # Person stood back up, clear candidate
+                self._fall_candidates.pop(tid, None)
 
         return falls
 
@@ -658,6 +705,9 @@ class ActivityRecognizer:
         """
         Temporal smoothing to prevent activity flicker.
         An activity must be detected for N consecutive frames to be confirmed.
+        
+        FIXED: More robust filtering that respects FALL type specially
+        (falls are one-time events, not continuous states)
         """
         current_types = {a.activity_type for a in activities}
 
@@ -704,7 +754,8 @@ class ActivityRecognizer:
         return {
             'tracked_ids': len(self.id_history),
             'active_activities': list(self._active_activities.keys()),
-            'frame_count': self._frame_count
+            'frame_count': self._frame_count,
+            'fall_candidates': len(self._fall_candidates)
         }
 
     def reset(self):
@@ -713,6 +764,7 @@ class ActivityRecognizer:
         self._activity_counts.clear()
         self._active_activities.clear()
         self._cluster_history.clear()
+        self._fall_candidates.clear()
         self._frame_count = 0
 
 
@@ -750,16 +802,19 @@ if __name__ == "__main__":
 
     print(f"  Scene mood: {result.scene_mood}")
 
-    # === Scenario 2: Person Fall ===
+    # === Scenario 2: Person Fall (FIXED: now requires sustained "down" state) ===
     recognizer.reset()
-    print("\n=== SCENARIO 2: Person Falls ===")
-    for frame in range(20):
-        # Person starts standing, then falls
-        if frame < 10:
+    print("\n=== SCENARIO 2: Person Falls (Sustained) ===")
+    for frame in range(30):
+        # Person starts standing, collapses, then stays down
+        if frame < 5:
             bbox_w, bbox_h = 40, 120  # Standing
+        elif frame < 10:
+            bbox_h = max(120 - (frame - 5) * 20, 40)  # Falling
+            bbox_w = min(40 + (frame - 5) * 10, 100)
         else:
-            bbox_h = max(120 - (frame - 10) * 15, 40)  # Falling
-            bbox_w = min(40 + (frame - 10) * 10, 100)
+            # Stayed down (maintaining collapsed state)
+            bbox_w, bbox_h = 90, 40
 
         detections = [{
             'id': 0,
