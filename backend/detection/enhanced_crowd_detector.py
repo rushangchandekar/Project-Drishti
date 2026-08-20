@@ -14,15 +14,31 @@ import time
 class EnhancedCrowdDetector:
     """
     Production-grade crowd detection:
-    - Multi-scale detection
+    - Configurable input resolution (320/480/640)
+    - FP16 half-precision inference on CUDA GPUs
     - Object tracking
     - Dense crowd estimation
     - Occlusion handling
     """
     
-    def __init__(self, model_path="yolov8n.pt", enable_tracking=True):
+    def __init__(self, model_path="yolo11n.pt", enable_tracking=True,
+                 input_size=640, half_precision=False,
+                 max_detections=100, nms_iou=0.45):
         self.model = YOLO(model_path)
         self.enable_tracking = enable_tracking
+        self.input_size = input_size
+        self.half_precision = half_precision
+        self.max_detections = max_detections
+        self.nms_iou = nms_iou
+        
+        # Enable FP16 if requested and CUDA available
+        import torch
+        if self.half_precision and torch.cuda.is_available():
+            self.model.model.half()
+            print(f"[ENHANCED CROWD DETECTOR] FP16 half-precision ENABLED on {torch.cuda.get_device_name(0)}")
+        elif self.half_precision:
+            self.half_precision = False
+            print("[ENHANCED CROWD DETECTOR] FP16 requested but no CUDA GPU found — using FP32")
         
         # Tracking data
         self.tracked_objects = {}
@@ -33,7 +49,8 @@ class EnhancedCrowdDetector:
         # Performance metrics
         self.last_detection_time = 0
         
-        print("[ENHANCED CROWD DETECTOR] Initialized")
+        print(f"[ENHANCED CROWD DETECTOR] Initialized (input={input_size}px, "
+              f"fp16={self.half_precision}, max_det={max_detections}, nms_iou={nms_iou})")
     
     def detect(self, frame: np.ndarray, conf_threshold=0.35) -> Dict:
         """
@@ -57,7 +74,7 @@ class EnhancedCrowdDetector:
         
         h, w = frame.shape[:2]
         
-        # Single optimized pass at 640px (YOLOv8n's native input size)
+        # Single optimized pass at 640px (YOLOv11n's native input size)
         all_detections = self._detect_at_scale(frame, conf_threshold, scale=1.0)
         
         # Tracking
@@ -91,9 +108,18 @@ class EnhancedCrowdDetector:
     
     def _detect_at_scale(self, frame: np.ndarray, conf: float, scale: float) -> List[Dict]:
         """
-        Run YOLO detection at specific scale
+        Run YOLO detection with optimization parameters.
+        Uses configurable input size, FP16, and NMS settings.
         """
-        results = self.model(frame, conf=conf, verbose=False)[0]
+        results = self.model(
+            frame,
+            conf=conf,
+            verbose=False,
+            imgsz=self.input_size,
+            half=self.half_precision,
+            max_det=self.max_detections,
+            iou=self.nms_iou
+        )[0]
         
         detections = []
         for box in results.boxes:

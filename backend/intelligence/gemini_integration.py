@@ -6,6 +6,7 @@ Enhanced Gemini integration for decision intelligence
 from google import genai
 from typing import Dict, Any, Optional, List
 import json
+from backend.config import get_settings
 
 
 class EnhancedGeminiAnalyzer:
@@ -20,15 +21,73 @@ class EnhancedGeminiAnalyzer:
     - Context-aware recommendations
     """
     
-    def __init__(self, api_key: str):
-        self.client = genai.Client(api_key=api_key)
-        self.model_name = "gemini-2.5-flash"
+    def __init__(self, api_key: Optional[str] = None):
+        self.settings = get_settings()
+        self.api_key = api_key or self.settings.GEMINI_API_KEY
+        self.openrouter_key = self.settings.OPENROUTER_API_KEY
         
+        # Models
+        self.gemini_model = "gemini-2.5-flash"
+        self.openrouter_model = self.settings.OPENROUTER_MODEL or "meta-llama/llama-3.3-70b-instruct"
+        self.model_name = self.openrouter_model if self.openrouter_key else self.gemini_model
+        
+        # Direct Gemini Client (for critical awareness, vision & fallback)
+        self.client = None
+        if self.api_key:
+            try:
+                self.client = genai.Client(api_key=self.api_key)
+                print(f"[GEMINI INTELLIGENCE] Google Gemini client initialized ({self.gemini_model})")
+            except Exception as e:
+                print(f"[GEMINI INTELLIGENCE] Failed to init Gemini client: {e}")
+            
         # Context memory
         self.conversation_history = []
         self.max_history = 10
         
-        print(f"[GEMINI INTELLIGENCE] Initialized with {self.model_name}")
+        print(f"[GEMINI INTELLIGENCE] Analyzer ready (OpenRouter: {bool(self.openrouter_key)}, Direct Gemini: {bool(self.client)})")
+
+    def _generate_content(self, prompt: str) -> str:
+        """
+        Generate text content.
+        Uses OpenRouter for general assistant queries with seamless automatic fallback to direct Gemini API.
+        """
+        # Option 1: Try OpenRouter
+        if self.openrouter_key:
+            try:
+                url = "https://openrouter.ai/api/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {self.openrouter_key}",
+                    "Content-Type": "application/json",
+                }
+                messages = [{"role": "user", "content": prompt}]
+                payload = {
+                    "model": self.openrouter_model,
+                    "messages": messages,
+                }
+                import httpx
+                with httpx.Client() as client:
+                    response = client.post(url, headers=headers, json=payload, timeout=25.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        return data['choices'][0]['message']['content'].strip()
+                    else:
+                        print(f"[GEMINI INTELLIGENCE WARN] OpenRouter returned HTTP {response.status_code}. Falling back to direct Gemini API...")
+            except Exception as e:
+                print(f"[GEMINI INTELLIGENCE WARN] OpenRouter call failed ({e}). Falling back to direct Gemini API...")
+
+        # Option 2: Fallback to Direct Google Gemini API
+        if self.client:
+            try:
+                response = self.client.models.generate_content(
+                    model=self.gemini_model,
+                    contents=prompt
+                )
+                return response.text.strip()
+            except Exception as e:
+                print(f"[GEMINI INTELLIGENCE ERROR] Direct Gemini API failed: {e}")
+                raise
+
+        raise ValueError("Neither OpenRouter nor Gemini API succeeded. Check your API keys and network connection.")
     
     def generate_situation_summary(
         self,
@@ -65,11 +124,7 @@ Focus on:
 Be clear, professional, and actionable."""
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
-            return response.text.strip()
+            return self._generate_content(prompt)
         except Exception as e:
             return f"Summary generation failed: {str(e)}"
     
@@ -107,12 +162,7 @@ Respond in JSON format:
 }}"""
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
-            
-            text = response.text.strip()
+            text = self._generate_content(prompt)
             
             # Extract JSON
             if "```json" in text:
@@ -154,26 +204,9 @@ Provide a clear, concise answer based on the current data.
 If you don't have enough information, say so and suggest what data would be needed."""
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
-            return response.text.strip()
+            return self._generate_content(prompt)
         except Exception as e:
-            error_str = str(e)
-            if '429' in error_str or 'RESOURCE_EXHAUSTED' in error_str:
-                # Rate limited - try once more after a short delay
-                import time as _time
-                _time.sleep(10)
-                try:
-                    response = self.client.models.generate_content(
-                        model=self.model_name,
-                        contents=prompt
-                    )
-                    return response.text.strip()
-                except Exception:
-                    return "⚠️ AI quota limit reached. The system is using the free tier with limited requests. Please wait a minute and try again, or upgrade to a paid Gemini API plan for unlimited queries."
-            return f"Query processing failed: {error_str}"
+            return f"Query processing failed: {str(e)}"
     
     def generate_incident_report(
         self,
@@ -208,11 +241,7 @@ Format as a professional incident report with:
 Keep it concise but comprehensive."""
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
-            return response.text.strip()
+            return self._generate_content(prompt)
         except Exception as e:
             return f"Report generation failed: {str(e)}"
     
@@ -248,12 +277,7 @@ Respond in JSON:
 }}"""
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
-            
-            text = response.text.strip()
+            text = self._generate_content(prompt)
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:

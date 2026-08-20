@@ -6,7 +6,10 @@ Agent orchestration is handled by n8n workflows.
 """
 
 from typing import Dict, Any, List, Optional
-from intelligence.gemini_integration import EnhancedGeminiAnalyzer
+try:
+    from backend.intelligence.gemini_integration import EnhancedGeminiAnalyzer
+except ImportError:
+    from intelligence.gemini_integration import EnhancedGeminiAnalyzer
 import time
 
 
@@ -24,11 +27,14 @@ class DecisionIntelligence:
     def __init__(self, gemini_api_key: Optional[str] = None):
         self.gemini = None
         
-        if gemini_api_key:
+        from backend.config import get_settings
+        settings = get_settings()
+        
+        if gemini_api_key or settings.OPENROUTER_API_KEY:
             try:
                 self.gemini = EnhancedGeminiAnalyzer(gemini_api_key)
             except Exception as e:
-                print(f"[DECISION INTELLIGENCE] Gemini unavailable: {e}")
+                print(f"[DECISION INTELLIGENCE] AI analyzer unavailable: {e}")
         
         # Decision history
         self.decision_history = []
@@ -87,10 +93,14 @@ class DecisionIntelligence:
     
     def _is_critical(self, context: Dict[str, Any]) -> bool:
         """Check if situation is critical (needs immediate action)"""
+        critical_activities = {'PANIC', 'STAMPEDE', 'FIGHT'}
+        dominant = context.get('dominant_activity')
+        
         return (
             context.get('fire_detected', False) or
             context.get('risk_score', 0) > 90 or
-            context.get('density_level') == 'CRITICAL'
+            context.get('density_level') == 'CRITICAL' or
+            dominant in critical_activities
         )
     
     def _needs_ai_analysis(self, context: Dict[str, Any]) -> bool:
@@ -102,7 +112,8 @@ class DecisionIntelligence:
         return (
             context.get('anomaly_detected', False) or
             context.get('risk_score', 0) > 60 or
-            context.get('density_level') in ('HIGH', 'VERY_HIGH')
+            context.get('density_level') in ('HIGH', 'VERY_HIGH') or
+            context.get('dominant_activity') in ('GATHERING', 'DISPERSAL', 'FALL')
         )
     
     def _rules_based_decision(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -138,7 +149,10 @@ class DecisionIntelligence:
                 'anomaly_detected': context.get('anomaly_detected', False),
                 'anomaly_type': context.get('anomaly_type'),
                 'trend': context.get('trend', 'STABLE'),
-                'zones': context.get('zones', {})
+                'zones': context.get('zones', {}),
+                'dominant_activity': context.get('dominant_activity'),
+                'scene_mood': context.get('scene_mood', 'CALM'),
+                'activities': context.get('activities', [])
             }
             
             ai_analysis = self.gemini.analyze_decision_context(situation_data, [])
@@ -168,10 +182,27 @@ class DecisionIntelligence:
         density = context.get('density_level', 'UNKNOWN')
         trend = context.get('trend', 'STABLE')
         fire = context.get('fire_detected', False)
+        dominant_activity = context.get('dominant_activity')
         
         if fire:
             return "🔥 FIRE DETECTED: Immediate evacuation required. All emergency protocols active."
-        elif risk > 80:
+        
+        # Activity-specific guidance (takes priority over density-based)
+        if dominant_activity == 'STAMPEDE':
+            return "🚨 STAMPEDE DETECTED: Clear exit paths immediately. Deploy crowd barriers. Emergency evacuation."
+        elif dominant_activity == 'PANIC':
+            return "⚠️ PANIC DETECTED: Crowd in chaotic movement. Activate PA system. Deploy calming measures."
+        elif dominant_activity == 'FIGHT':
+            return "🥊 ALTERCATION DETECTED: Dispatch security immediately. Isolate the area."
+        elif dominant_activity == 'FALL':
+            return "🏥 PERSON FALLEN: Possible medical emergency. Dispatch medical team to location."
+        elif dominant_activity == 'DISPERSAL':
+            return "🏃 RAPID DISPERSAL: Crowd scattering quickly. Investigate cause. Monitor exit points."
+        elif dominant_activity == 'GATHERING':
+            return "👥 CROWD GATHERING: Large group forming. Monitor for escalation. Pre-position response teams."
+        
+        # Standard density/risk-based guidance
+        if risk > 80:
             return "CRITICAL SITUATION: Deploy maximum resources. Consider evacuation."
         elif risk > 60:
             return "HIGH RISK: Increase monitoring and prepare for escalation."

@@ -3,7 +3,7 @@
    Next.js / Dark Theme / Glassmorphism / Premium
    ========================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
 
 /* ── Design Tokens ── */
 :root {
@@ -85,6 +85,10 @@
 
 html, body {
   height: 100%;
+}
+
+/* Lock scroll only when the dashboard is visible (not on landing page) */
+html:has(.dashboard-shell), html:has(.dashboard-shell) body {
   overflow: hidden;
 }
 
@@ -214,3 +218,390 @@ body {
   border: 1px solid var(--border-primary);
 }
 .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* ==========================================================
+   SYNAPSE LANDING PAGE — Design System Extension
+   Vantablack + Violet/Cyan + Instrument Serif
+   ========================================================== */
+
+/* ── Synapse Keyframes ── */
+@keyframes shimmer-text {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes float-orb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(10px, -20px) scale(1.05); }
+  50% { transform: translate(-5px, -10px) scale(1.02); }
+  75% { transform: translate(-15px, -25px) scale(1.04); }
+}
+
+@keyframes float-orb-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-10px, 15px) scale(1.03); }
+  50% { transform: translate(8px, -18px) scale(1.06); }
+  75% { transform: translate(12px, 10px) scale(1.01); }
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes spin-border {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* ── Synapse Glass ── */
+.synapse-glass {
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ── Shimmer Text ── */
+.shimmer-text {
+  background: linear-gradient(90deg, #a78bfa 0%, #ffffff 40%, #ffffff 60%, #22d3ee 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer-text 4s linear infinite;
+}
+
+/* ── Shiny Border Button ── */
+.shiny-border-btn {
+  position: relative;
+  padding: 1px;
+  border-radius: 9999px;
+  overflow: hidden;
+  display: inline-block;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.shiny-border-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(from 0deg, transparent 0%, #8b5cf6 40%, #06b6d4 50%, transparent 60%);
+  animation: spin-border 4s linear infinite;
+  z-index: 0;
+}
+
+.shiny-border-btn-inner {
+  position: relative;
+  z-index: 1;
+  background: #0a0a0a;
+  border-radius: 9999px;
+  padding: 16px 40px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.shiny-border-btn:hover .shiny-border-btn-inner {
+  background: #111;
+}
+
+/* ── Nav Pill ── */
+.nav-pill {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 95%;
+  max-width: 672px;
+  z-index: 1000;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+}
+
+.nav-pill-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Instrument Serif', serif;
+  font-size: 20px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav-pill-logo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  flex-shrink: 0;
+}
+
+.nav-pill-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  list-style: none;
+}
+
+.nav-pill-links a {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a3a3a3;
+  text-decoration: none;
+  transition: color 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.nav-pill-links a:hover {
+  color: #fff;
+}
+
+.nav-pill-cta {
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.nav-pill-cta:hover {
+  background: #e5e5e5;
+  transform: scale(1.03);
+}
+
+/* ── Feature Cards ── */
+.synapse-card {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 24px;
+  padding: 40px;
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.synapse-card:hover {
+  transform: translateY(-12px);
+  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 20px -10px rgba(139, 92, 246, 0.4);
+}
+
+.synapse-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.synapse-card:hover .synapse-card-icon {
+  transform: scale(1.1) rotate(3deg);
+}
+
+/* ── Code Block ── */
+.synapse-code-window {
+  background: rgba(8, 8, 8, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.synapse-code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.synapse-code-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.synapse-code-dots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.synapse-code-body {
+  padding: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-x: auto;
+  color: #a3a3a3;
+}
+
+.synapse-code-body .kw { color: #8b5cf6; }
+.synapse-code-body .cls { color: #06b6d4; }
+.synapse-code-body .str { color: #10b981; }
+.synapse-code-body .cmt { color: #525252; font-style: italic; }
+.synapse-code-body .fn { color: #e2e8f0; }
+.synapse-code-body .op { color: #a3a3a3; }
+
+/* ── Ticker ── */
+.synapse-ticker {
+  width: 100%;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 16px 0;
+}
+
+.synapse-ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  animation: ticker-scroll 40s linear infinite;
+  width: max-content;
+}
+
+.synapse-ticker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.synapse-ticker-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #737373;
+}
+
+.synapse-ticker-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  color: #fff;
+  font-weight: 500;
+}
+
+.synapse-ticker-value.accent-violet { color: #8b5cf6; }
+.synapse-ticker-value.accent-cyan { color: #06b6d4; }
+.synapse-ticker-value.accent-emerald { color: #10b981; }
+
+/* ── Footer ── */
+.synapse-footer {
+  background: #050505;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 60px 40px 30px;
+}
+
+.synapse-footer-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.synapse-footer-brand {
+  font-family: 'Instrument Serif', serif;
+  font-size: 28px;
+  color: #fff;
+}
+
+.synapse-footer-heading {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #737373;
+  margin-bottom: 16px;
+}
+
+.synapse-footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.synapse-footer-links a {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #a3a3a3;
+  text-decoration: none;
+  transition: color 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.synapse-footer-links a:hover {
+  color: #fff;
+}
+
+.synapse-footer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1100px;
+  margin: 40px auto 0;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #525252;
+}
+
+.synapse-footer-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #10b981;
+  font-size: 13px;
+}
+
+.synapse-footer-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Responsive: Landing Page ── */
+@media (max-width: 768px) {
+  .nav-pill { padding: 10px 16px; }
+  .nav-pill-links { display: none; }
+  .synapse-footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+}
+
+@media (max-width: 480px) {
+  .synapse-footer-grid { grid-template-columns: 1fr; }
+  .synapse-footer-bar { flex-direction: column; gap: 12px; text-align: center; }
+}
+

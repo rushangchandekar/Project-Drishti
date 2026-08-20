@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.3-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![Gemini](https://img.shields.io/badge/Gemini-2.1-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 
-**Project Drishti** (Sanskrit for "Vision") is an intelligent, real-time surveillance and crowd safety system. It leverages state-of-the-art Computer Vision (YOLOv8) and Generative AI (Google Gemini) to transform passive video feeds into proactive safety intelligence.
+**Project Drishti** (Sanskrit for "Vision") is an intelligent, real-time surveillance and crowd safety system. It leverages state-of-the-art Computer Vision (YOLOv11) and Generative AI (Google Gemini) to transform passive video feeds into proactive safety intelligence.
 
 ## 🚀 Key Features
 
@@ -29,7 +29,7 @@
 
 ```mermaid
 graph TD
-    V[Video Feed / Camera] --> D[Detection Layer: YOLOv8 / Fire]
+    V[Video Feed / Camera] --> D[Detection Layer: YOLOv11 / Fire]
     D --> A[Analysis Layer: Density / Anomaly]
     A --> S[State Manager]
     S --> G[Intelligence Layer: Gemini AI]
@@ -42,7 +42,7 @@ graph TD
 
 ## 🛠️ Tech Stack
 
-- **Backend**: FastAPI, Python, OpenCV, Ultralytics (YOLOv8)
+- **Backend**: FastAPI, Python, OpenCV, Ultralytics (YOLOv11)
 - **Frontend**: Next.js, Framer Motion, Lucide Icons, Tailwind CSS
 - **AI/LLM**: Google Gemini 2.5 Flash (via `google-generativeai`)
 - **Automations**: n8n, Twilio (WhatsApp API)

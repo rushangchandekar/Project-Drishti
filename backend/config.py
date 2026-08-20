@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     """
     
     # API Keys
-    GEMINI_API_KEY: str = Field(..., description="Google Gemini API Key")
+    GEMINI_API_KEY: str = Field(default="", description="Google Gemini API Key")
+    OPENROUTER_API_KEY: str = Field(default="", description="OpenRouter API Key")
+    OPENROUTER_MODEL: str = Field(default="meta-llama/llama-3.3-70b-instruct", description="OpenRouter Model")
+    OPENROUTER_VISION_MODEL: str = Field(default="google/gemini-2.0-flash-001", description="OpenRouter Vision Model")
     
     # N8N Webhooks
     N8N_WEBHOOK_BASE_URL: str = Field(
@@ -45,7 +48,7 @@ class Settings(BaseSettings):
     
     # YOLO Model
     YOLO_MODEL_PATH: str = Field(
-        default="yolov8n.pt",
+        default="yolo11n.pt",
         description="Path to YOLO model file"
     )
     
@@ -57,6 +60,49 @@ class Settings(BaseSettings):
     VIDEO_SOURCE: str = Field(
         default="0",
         description="Video source (0 for webcam, or file path)"
+    )
+
+    # YOLO Optimization Settings
+    YOLO_INPUT_SIZE: int = Field(
+        default=640,
+        description="YOLO input resolution (lower = faster, 320/480/640)"
+    )
+    YOLO_HALF_PRECISION: bool = Field(
+        default=False,
+        description="Use FP16 half-precision inference (requires CUDA GPU)"
+    )
+    YOLO_MAX_DETECTIONS: int = Field(
+        default=100,
+        description="Maximum number of detections per frame"
+    )
+    YOLO_NMS_IOU: float = Field(
+        default=0.45,
+        description="NMS IoU threshold for suppressing overlapping boxes"
+    )
+
+    # Multi-Stream Settings
+    MAX_CAMERA_STREAMS: int = Field(
+        default=8,
+        description="Maximum concurrent camera streams"
+    )
+
+    
+    # Database & Authentication Settings
+    DATABASE_URL: str = Field(
+        default="sqlite:///./drishti.db",
+        description="Database connection string (SQLite fallback or PostgreSQL)"
+    )
+    JWT_SECRET: str = Field(
+        default="drishti_super_secret_jwt_key_2026",
+        description="Secret key for JWT token encoding/decoding"
+    )
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="JWT encoding algorithm"
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30,
+        description="JWT access token expiration in minutes"
     )
     
     # Pydantic V2 configuration

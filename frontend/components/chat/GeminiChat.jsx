@@ -1,12 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Minus, Maximize2, Minimize2, X, Send } from 'lucide-react';
+import { Sparkles, Minus, X, Send } from 'lucide-react';
 
 export default function GeminiChat() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -60,7 +59,7 @@ export default function GeminiChat() {
         whileTap={{ scale: 0.95 }}
       >
         <Sparkles size={18} />
-        <span style={{ fontWeight: 600, fontSize: '14px' }}>AI Assistant</span>
+        <span style={{ fontWeight: 600, fontSize: '14px' }}>Echo</span>
       </motion.button>
     );
   }
@@ -71,8 +70,8 @@ export default function GeminiChat() {
       animate={{ 
         y: 0, 
         opacity: 1, 
-        width: isExpanded && !isMinimized ? '600px' : '380px', 
-        height: isMinimized ? 'auto' : (isExpanded ? '600px' : '450px') 
+        width: '380px', 
+        height: isMinimized ? 'auto' : '450px' 
       }}
       transition={{ type: "spring", bounce: 0, duration: 0.4 }}
       style={{
@@ -94,17 +93,12 @@ export default function GeminiChat() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border-primary)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px' }}>
           <Sparkles size={16} color="var(--accent-blue)" />
-          AI Assistant
+          Echo
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => setIsMinimized(!isMinimized)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} title="Minimize">
             <Minus size={14} />
           </button>
-          {!isMinimized && (
-            <button onClick={() => setIsExpanded(!isExpanded)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} title="Maximize/Restore">
-              {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={12} />}
-            </button>
-          )}
           <button onClick={() => setIsOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} title="Close">
             <X size={16} />
           </button>
@@ -138,7 +132,7 @@ export default function GeminiChat() {
                   
                   <div style={{ flex: 1, background: m.role === 'user' ? 'rgba(255,255,255,0.05)' : 'transparent', padding: m.role === 'user' ? '8px 12px' : '0', borderRadius: '8px', fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                     {m.role === 'bot' && (
-                      <div style={{ color: 'var(--accent-blue)', fontWeight: 600, marginBottom: '4px' }}>Gemini LLM Agent:</div>
+                      <div style={{ color: 'var(--accent-blue)', fontWeight: 600, marginBottom: '4px' }}>Echo:</div>
                     )}
                     {m.text}
                   </div>

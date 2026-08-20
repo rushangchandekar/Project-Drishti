@@ -377,6 +377,58 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [1900, 420]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-chat-post",
+      "name": "Webhook: ChatAgent POST",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 580]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"output\": \"Hello from n8n! I received your question: \\\"\" + ($json.body.question || '') + \"\\\". This is a mock response from the n8n ChatAgent. You can connect this Webhook node to an Advanced AI Agent node in n8n to integrate Gemini directly into your n8n workflow!\"\n}"
+      },
+      "id": "respond-chat-post",
+      "name": "Respond: ChatAgent POST",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [300, 580]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-chat-get",
+      "name": "Webhook: ChatAgent GET",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 740]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "responseCode": 200,
+        "responseMode": "custom",
+        "responseBody": "={\n  \"message\": \"n8n Chat Agent webhook is active and listening for POST requests!\"\n}"
+      },
+      "id": "respond-chat-get",
+      "name": "Respond: ChatAgent GET",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [300, 740]
     }
   ],
   "connections": {
@@ -580,6 +632,28 @@
         [
           {
             "node": "Respond: SecurityAgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: ChatAgent POST": {
+      "main": [
+        [
+          {
+            "node": "Respond: ChatAgent POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: ChatAgent GET": {
+      "main": [
+        [
+          {
+            "node": "Respond: ChatAgent GET",
             "type": "main",
             "index": 0
           }

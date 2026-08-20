@@ -20,6 +20,7 @@ crowd_detector = None
 density_calculator = None
 anomaly_detector = None
 crowd_analyzer = None
+activity_recognizer = None
 
 # Intelligence components
 context_analyzer = None
@@ -35,6 +36,9 @@ current_state = {}
 recent_agent_actions = []
 detection_task = None
 frame_lock = threading.Lock()  # Thread-safe frame access
+active_websockets = set()      # Active WebSocket connections for real-time telemetry
+stream_manager = None          # MultiStreamManager instance (initialized in lifespan)
+
 
 # Performance tracking
 performance_metrics = {

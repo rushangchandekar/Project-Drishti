@@ -129,9 +129,16 @@ class AgentOrchestrator:
        to Gemini for deeper analysis when critical situations are detected.
     """
 
-    def __init__(self, gemini_client=None, model_name="gemini-2.5-flash"):
+    def __init__(self, gemini_client=None, model_name=None):
+        from backend.config import get_settings
+        self.settings = get_settings()
         self.gemini_client = gemini_client
-        self.model_name = model_name
+        self.openrouter_key = self.settings.OPENROUTER_API_KEY
+        
+        if self.openrouter_key:
+            self.model_name = model_name or self.settings.OPENROUTER_VISION_MODEL
+        else:
+            self.model_name = model_name or "gemini-2.5-flash"
 
         # Cooldown for Gemini Vision calls (seconds)
         self.vision_cooldown = 30
@@ -208,9 +215,9 @@ class AgentOrchestrator:
         )
 
     def can_call_vision(self) -> bool:
-        """Check if we can make a Gemini Vision call (respecting cooldown)."""
+        """Check if we can make a Gemini/OpenRouter Vision call (respecting cooldown)."""
         return (
-            self.gemini_client is not None
+            (self.gemini_client is not None or self.openrouter_key is not None)
             and (time.time() - self._last_vision_call) >= self.vision_cooldown
         )
 
@@ -223,7 +230,7 @@ class AgentOrchestrator:
 
         Returns dict of {agent_id: trigger_reason}.
         """
-        if not self.gemini_client or frame is None:
+        if not self.gemini_client and not self.openrouter_key or frame is None:
             return {}
 
         self._last_vision_call = time.time()
@@ -278,27 +285,63 @@ Respond ONLY with valid JSON (no markdown, no explanation outside JSON):
 
 If no agents are needed, return: {{"analysis": "...", "agents": {{}}}}"""
 
-            # Call Gemini with image
-            from google.genai import types
+            text = None
 
-            response = self.gemini_client.models.generate_content(
-                model=self.model_name,
-                contents=[
-                    types.Content(
-                        parts=[
-                            types.Part(
-                                inline_data=types.Blob(
-                                    mime_type="image/jpeg",
-                                    data=image_bytes,
-                                )
-                            ),
-                            types.Part(text=prompt),
-                        ]
+            # Option 1: Prioritize direct Google Gemini API for critical vision analysis
+            if self.gemini_client:
+                try:
+                    from google.genai import types
+                    response = self.gemini_client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=[
+                            types.Content(
+                                parts=[
+                                    types.Part(
+                                        inline_data=types.Blob(
+                                            mime_type="image/jpeg",
+                                            data=image_bytes,
+                                        )
+                                    ),
+                                    types.Part(text=prompt),
+                                ]
+                            )
+                        ],
                     )
-                ],
-            )
+                    text = response.text.strip()
+                except Exception as g_err:
+                    print(f"[ORCHESTRATOR VISION WARN] Direct Gemini call failed ({g_err}). Trying OpenRouter...")
 
-            text = response.text.strip()
+            # Option 2: Fallback to OpenRouter for vision analysis
+            if not text and self.openrouter_key:
+                url = "https://openrouter.ai/api/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {self.openrouter_key}",
+                    "Content-Type": "application/json",
+                }
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                        ]
+                    }
+                ]
+                payload = {
+                    "model": self.settings.OPENROUTER_VISION_MODEL or "google/gemini-2.0-flash-001",
+                    "messages": messages,
+                }
+                import httpx
+                with httpx.Client() as client:
+                    response = client.post(url, headers=headers, json=payload, timeout=30.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        text = data['choices'][0]['message']['content'].strip()
+                    else:
+                        print(f"[ORCHESTRATOR VISION ERROR] OpenRouter vision call returned status {response.status_code}")
+
+            if not text:
+                return {}
 
             # Parse JSON from response
             if "```json" in text:

@@ -91,7 +91,7 @@ export default function Dashboard() {
   })();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: 'var(--bg-primary)' }}>
+    <div className="dashboard-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', backgroundColor: 'var(--bg-primary)' }}>
       <TopBar liveTime={liveTime} status={status} />
       
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

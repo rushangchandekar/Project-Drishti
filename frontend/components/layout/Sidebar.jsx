@@ -1,5 +1,5 @@
 'use client';
-import { Home, LineChart, Brain, Bell, Settings, LogOut } from 'lucide-react';
+import { Home, LineChart, Brain, Bell, LogOut } from 'lucide-react';
 
 export default function Sidebar({ activeTab, onTabChange, unreadCount }) {
   return (
@@ -12,7 +12,6 @@ export default function Sidebar({ activeTab, onTabChange, unreadCount }) {
         <NavItem icon={<LineChart size={20} />} active={activeTab === 'analytics'} onClick={() => onTabChange('analytics')} />
         <NavItem icon={<Brain size={20} />} active={activeTab === 'ai'} onClick={() => onTabChange('ai')} />
         <NavItem icon={<Bell size={20} />} active={activeTab === 'alerts'} onClick={() => onTabChange('alerts')} badge={unreadCount > 0 ? unreadCount : null} />
-        <NavItem icon={<Settings size={20} />} active={activeTab === 'settings'} onClick={() => onTabChange('settings')} />
       </nav>
 
       {/* Footer */}

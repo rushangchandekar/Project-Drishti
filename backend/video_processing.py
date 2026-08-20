@@ -7,14 +7,17 @@ from typing import Dict, Any
 from backend.config import get_settings
 from backend import state
 from backend.webhooks import trigger_webhook, invoke_agent_webhook
-from intelligence.agent_orchestrator import AGENT_REGISTRY
+try:
+    from backend.intelligence.agent_orchestrator import AGENT_REGISTRY
+except ImportError:
+    from intelligence.agent_orchestrator import AGENT_REGISTRY
 
 from backend.twilio_service import send_emergency_whatsapp
 
 settings = get_settings()
 
 def _annotate_frame_complete(frame, crowd_result, fire_result, density_metrics, 
-                             anomaly_result, analysis):
+                             anomaly_result, analysis, activity_result=None):
     """Annotate frame with all detection information"""
     
     annotated = frame.copy()
@@ -84,6 +87,28 @@ def _annotate_frame_complete(frame, crowd_result, fire_result, density_metrics,
         cv2.putText(annotated, f"ANOMALY: {anomaly_result.anomaly_type}", 
                    (200, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
     
+    # Activity recognition overlay
+    if activity_result and activity_result.activities:
+        y_act = 85
+        mood_colors = {
+            'CALM': (0, 255, 0), 'ALERT': (0, 255, 255),
+            'TENSE': (0, 165, 255), 'CHAOTIC': (0, 0, 255)
+        }
+        mood_color = mood_colors.get(activity_result.scene_mood, (255, 255, 255))
+        cv2.putText(annotated, f"MOOD: {activity_result.scene_mood}",
+                   (10, y_act), cv2.FONT_HERSHEY_SIMPLEX, 0.5, mood_color, 2)
+        
+        for act in activity_result.activities[:2]:  # Show top 2 activities
+            act_color = (0, 0, 255) if act.severity in ('HIGH', 'CRITICAL') else (0, 255, 255)
+            cv2.putText(annotated, f"ACTIVITY: {act.activity_type} ({act.confidence:.0%})",
+                       (200, y_act), cv2.FONT_HERSHEY_SIMPLEX, 0.45, act_color, 2)
+            y_act += 18
+            
+            # Draw circle at activity location
+            if act.location:
+                center_pt = (int(act.location[0]), int(act.location[1]))
+                cv2.circle(annotated, center_pt, 30, act_color, 2)
+    
     # Timestamp
     timestamp = time.strftime("%H:%M:%S")
     cv2.putText(annotated, timestamp, (w-100, 25),
@@ -115,12 +140,21 @@ def _run_detection_sync(frame):
         timestamp=time.time()
     )
 
+    # ===== STEP 1.5: ACTIVITY RECOGNITION =====
+    activity_result = None
+    if state.activity_recognizer:
+        activity_result = state.activity_recognizer.detect(
+            detections=crowd_result['detections'],
+            frame_shape=frame.shape[:2]
+        )
+
     analysis = state.crowd_analyzer.update(
         person_count=crowd_result['person_count'],
         fire_detected=fire_result.detected,
         timestamp=time.time(),
         density_level=density_metrics.level,
-        zones=crowd_result['zones']
+        zones=crowd_result['zones'],
+        dominant_activity=activity_result.dominant_activity if activity_result else None
     )
 
     # ===== STEP 2: CONTEXT BUILDING =====
@@ -138,7 +172,8 @@ def _run_detection_sync(frame):
         },
         density_metrics=density_metrics,
         anomaly_detection=anomaly_result,
-        fire_detection=fire_result
+        fire_detection=fire_result,
+        activity_detection=activity_result
     )
 
     # ===== STEP 3: RULE-BASED GUIDANCE =====
@@ -163,12 +198,27 @@ def _run_detection_sync(frame):
     if 'DispatchAgent' in selected_agents:
         autonomous_actions.extend(["Dispatching Security Personnel"])
 
+    # Activity-based agent triggers
+    if activity_result and activity_result.activities:
+        for act in activity_result.activities:
+            if act.activity_type == 'FALL' and 'MedicAgent' not in selected_agents:
+                selected_agents['MedicAgent'] = f"Fall detected: {act.description}"
+                autonomous_actions.extend(["Medical Team on Standby", "Ambulance Notified"])
+            elif act.activity_type == 'FIGHT' and 'DispatchAgent' not in selected_agents:
+                selected_agents['DispatchAgent'] = f"Fight detected: {act.description}"
+                autonomous_actions.extend(["Dispatching Security Personnel"])
+            elif act.activity_type in ('PANIC', 'STAMPEDE') and 'EvacAgent' not in selected_agents:
+                selected_agents['EvacAgent'] = f"{act.activity_type} detected: {act.description}"
+                autonomous_actions.extend(["Opening Emergency Exit Doors", "Activating PA System"])
+            elif act.activity_type == 'GATHERING' and act.severity in ('HIGH', 'CRITICAL') and 'CrowdAgent' not in selected_agents:
+                selected_agents['CrowdAgent'] = f"Large gathering detected: {act.description}"
+
     autonomous_actions = list(set(autonomous_actions))
 
     # ===== STEP 5: ANNOTATE FRAME =====
     annotated_frame = _annotate_frame_complete(
         frame, crowd_result, fire_result,
-        density_metrics, anomaly_result, analysis
+        density_metrics, anomaly_result, analysis, activity_result
     )
 
     loop_time = (time.time() - loop_start) * 1000
@@ -178,6 +228,7 @@ def _run_detection_sync(frame):
         'fire_result': fire_result,
         'density_metrics': density_metrics,
         'anomaly_result': anomaly_result,
+        'activity_result': activity_result,
         'analysis': analysis,
         'context': context,
         'decision': decision,
@@ -205,12 +256,19 @@ async def intelligent_detection_loop():
             from detection.density_calculator import IntelligentDensityCalculator
             from detection.anomaly_detector import CrowdAnomalyDetector
             from detection.crowd_analyzer import CrowdAnalyzer
+            from detection.activity_recognizer import ActivityRecognizer
             
             print("\n[BACKGROUND INIT] Initializing heavy components...")
             
             if not state.crowd_detector:
-                print("   [BACKGROUND INIT] Loading YOLOv8 model for EnhancedCrowdDetector...")
-                state.crowd_detector = EnhancedCrowdDetector(enable_tracking=True)
+                print("   [BACKGROUND INIT] Loading YOLOv11 model for EnhancedCrowdDetector...")
+                state.crowd_detector = EnhancedCrowdDetector(
+                    enable_tracking=True,
+                    input_size=settings.YOLO_INPUT_SIZE,
+                    half_precision=settings.YOLO_HALF_PRECISION,
+                    max_detections=settings.YOLO_MAX_DETECTIONS,
+                    nms_iou=settings.YOLO_NMS_IOU
+                )
             if not state.fire_detector:
                 state.fire_detector = AdvancedFireDetector(mode='hybrid')
             if not state.density_calculator:
@@ -219,6 +277,9 @@ async def intelligent_detection_loop():
                 state.anomaly_detector = CrowdAnomalyDetector()
             if not state.crowd_analyzer:
                 state.crowd_analyzer = CrowdAnalyzer()
+            if not state.activity_recognizer:
+                print("   [BACKGROUND INIT] Initializing ActivityRecognizer...")
+                state.activity_recognizer = ActivityRecognizer()
             if not state.agent_orchestrator:
                 from intelligence.agent_orchestrator import AgentOrchestrator, _build_initial_agent_statuses
                 print("   [BACKGROUND INIT] Initializing AgentOrchestrator...")
@@ -298,7 +359,8 @@ async def intelligent_detection_loop():
                             last_detect_cache['fire_result'], 
                             last_detect_cache['density_metrics'], 
                             last_detect_cache['anomaly_result'], 
-                            last_detect_cache['analysis']
+                            last_detect_cache['analysis'],
+                            last_detect_cache.get('activity_result')
                         )
                         with state.frame_lock:
                             state.current_state['frame'] = annotated
@@ -441,6 +503,25 @@ async def intelligent_detection_loop():
 
                 # ===== UPDATE STATE (Thread-safe) =====
                 with state.frame_lock:
+                    # Build activity summary for state
+                    activity_summary = []
+                    activity_mood = 'CALM'
+                    dominant_activity = None
+                    activity_result = result.get('activity_result')
+                    if activity_result and activity_result.activities:
+                        activity_mood = activity_result.scene_mood
+                        dominant_activity = activity_result.dominant_activity
+                        for act in activity_result.activities:
+                            activity_summary.append({
+                                'type': str(act.activity_type),
+                                'severity': str(act.severity),
+                                'confidence': float(act.confidence),
+                                'description': str(act.description),
+                                'involved_ids': [int(x) for x in act.involved_ids],
+                                'location': [int(x) for x in act.location] if act.location else None,
+                                'zone': str(act.zone)
+                            })
+
                     state.current_state = {
                         'person_count': int(crowd_result['person_count']),
                         'density_level': str(density_metrics.level),
@@ -465,9 +546,23 @@ async def intelligent_detection_loop():
                         'total_loop_time_ms': float(loop_time),
                         'frame': annotated_frame,
                         'autonomous_actions': autonomous_actions,
+                        'selected_agents': selected_agents,
+                        'recent_agent_actions': list(state.recent_agent_actions),
                         'agents_active': len([s for s in state.agent_statuses.values() if s.get('status') in ('running', 'completed')]),
+                        'activities': activity_summary,
+                        'scene_mood': activity_mood,
+                        'dominant_activity': dominant_activity,
                         'timestamp': time.time()
                     }
+
+                    # Broadcast telemetry state to all connected WebSockets
+                    if state.active_websockets:
+                        state_copy = {k: v for k, v in state.current_state.items() if k != 'frame'}
+                        for ws in list(state.active_websockets):
+                            try:
+                                await ws.send_json(state_copy)
+                            except Exception:
+                                state.active_websockets.discard(ws)
 
                 # Update metrics
                 state.performance_metrics['total_detections'] += 1
@@ -475,10 +570,13 @@ async def intelligent_detection_loop():
                 # Log status (less frequently)
                 if frame_count % 30 == 0:
                     active_agents = len(selected_agents)
+                    act_info = f"Act: {dominant_activity or 'NONE':10s}" if activity_result else "Act: N/A       "
                     print(f"\r[LIVE] People: {crowd_result['person_count']:3d} | "
                           f"Density: {density_metrics.level:12s} | "
                           f"Risk: {analysis.risk_score:5.1f} | "
                           f"Fire: {'YES' if fire_result.detected else 'NO ':3s} | "
+                          f"{act_info} | "
+                          f"Mood: {activity_mood:7s} | "
                           f"Agents: {active_agents} | "
                           f"Time: {loop_time:5.0f}ms",
                           end="")

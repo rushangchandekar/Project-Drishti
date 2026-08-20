@@ -22,7 +22,8 @@ class ContextAnalyzer:
         crowd_analysis: Dict[str, Any],
         density_metrics: Any,
         anomaly_detection: Any,
-        fire_detection: Any = None
+        fire_detection: Any = None,
+        activity_detection: Any = None
     ) -> Dict[str, Any]:
         """
         Build comprehensive context for agent system
@@ -64,7 +65,12 @@ class ContextAnalyzer:
             'detection_time_ms': crowd_analysis.get('detection_time_ms', 0),
             
             # Frame (for further processing)
-            'frame': detection_result.get('frame')
+            'frame': detection_result.get('frame'),
+            
+            # Activities
+            'activities': [],
+            'scene_mood': 'CALM',
+            'dominant_activity': None,
         }
         
         # Add fire detection if available
@@ -75,6 +81,21 @@ class ContextAnalyzer:
                 self._bbox_to_zone(bbox, context['zones'])
                 for bbox in fire_detection.bounding_boxes
             ]
+        
+        # Add activity detection if available
+        if activity_detection and activity_detection.activities:
+            context['activities'] = [
+                {
+                    'type': act.activity_type,
+                    'severity': act.severity,
+                    'confidence': act.confidence,
+                    'description': act.description,
+                    'zone': act.zone
+                }
+                for act in activity_detection.activities
+            ]
+            context['scene_mood'] = activity_detection.scene_mood
+            context['dominant_activity'] = activity_detection.dominant_activity
         
         # Calculate derived metrics
         context['situation_severity'] = self._assess_severity(context)
@@ -113,6 +134,16 @@ class ContextAnalyzer:
         if context['fire_detected']:
             return "CRITICAL"
         
+        # Check for critical activities
+        critical_activities = {'PANIC', 'STAMPEDE', 'FIGHT'}
+        dominant = context.get('dominant_activity')
+        if dominant in critical_activities:
+            return "CRITICAL"
+        
+        # Fall is severe
+        if dominant == 'FALL':
+            return "SEVERE"
+        
         risk = context['risk_score']
         
         if risk >= 90:
@@ -128,9 +159,13 @@ class ContextAnalyzer:
     
     def _needs_immediate_action(self, context: Dict[str, Any]) -> bool:
         """Determine if immediate action is required"""
+        immediate_activities = {'PANIC', 'STAMPEDE', 'FIGHT', 'FALL'}
+        dominant = context.get('dominant_activity')
+        
         return (
             context['fire_detected'] or
             context['density_level'] in ['CRITICAL', 'VERY_HIGH'] or
             context['risk_score'] > 85 or
-            context['anomaly_severity'] == 'CRITICAL'
+            context['anomaly_severity'] == 'CRITICAL' or
+            dominant in immediate_activities
         )

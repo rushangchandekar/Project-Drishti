@@ -21,3 +21,10 @@ pydantic==2.7.1
 
 # Add this line at the end
 pydantic-settings==2.2.1
+
+# Database & ORM
+sqlalchemy>=2.0.0
+
+# Authentication
+PyJWT>=2.8.0
+passlib[bcrypt]>=1.7.4

@@ -53,7 +53,8 @@ class CrowdAnalyzer:
         fire_detected: bool,
         timestamp: float,
         density_level: str,
-        zones: dict
+        zones: dict,
+        dominant_activity: str = None
     ) -> CrowdAnalysis:
         """
         Update analyzer with new detection and return analysis
@@ -77,7 +78,7 @@ class CrowdAnalyzer:
         # Calculate risk score
         risk_score = self._calculate_risk_score(
             person_count, density_level, fire_detected, 
-            anomaly_detected, rate
+            anomaly_detected, rate, dominant_activity
         )
         
         # Generate recommendation
@@ -179,7 +180,8 @@ class CrowdAnalyzer:
         density: str,
         fire: bool,
         anomaly: bool,
-        rate: float
+        rate: float,
+        dominant_activity: str = None
     ) -> float:
         """
         Calculate overall risk score 0-100
@@ -215,6 +217,19 @@ class CrowdAnalyzer:
             score += 10
         elif rate > 1.0:
             score += 5
+        
+        # Activity-based risk adjustments
+        if dominant_activity:
+            activity_risk = {
+                'STAMPEDE': 30,
+                'PANIC': 30,
+                'FIGHT': 20,
+                'FALL': 15,
+                'DISPERSAL': 10,
+                'GATHERING': 5,
+                'LOITERING': 0,
+            }
+            score += activity_risk.get(dominant_activity, 0)
         
         return min(100, max(0, round(score, 1)))
     

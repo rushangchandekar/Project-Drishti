@@ -77,20 +77,31 @@ const getAgentIcon = (iconName, color, size = 20) => {
 export default function AgentExecutionPanel({ agentStatuses = {}, agentFeed = [] }) {
   const [expandedTrace, setExpandedTrace] = useState(null);
 
+  const normalizeCategory = (cat) => {
+    if (!cat) return 'operations';
+    const c = String(cat).toLowerCase();
+    if (c.includes('emergency') || c.includes('safety')) return 'emergency';
+    if (c.includes('cognitive') || c.includes('intelligence')) return 'intelligence';
+    if (c.includes('tactical') || c.includes('operations')) return 'operations';
+    return 'operations';
+  };
+
   // Merge the polling/backend statuses with the default schema
   const mergedAgents = {};
   Object.entries(defaultAgents).forEach(([id, def]) => {
+    const raw = agentStatuses[id] || {};
     mergedAgents[id] = {
       agent_id: id,
-      status: 'idle',
-      invocation_count: 0,
-      execution_time_ms: 0,
-      last_invoked: null,
-      last_result: null,
-      last_error: null,
-      trigger_reason: null,
+      status: raw.status || (raw.invocations > 0 ? 'completed' : 'idle'),
+      invocation_count: raw.invocation_count ?? raw.invocations ?? 0,
+      execution_time_ms: raw.execution_time_ms ?? (raw.latency ? parseFloat(raw.latency) : 0),
+      last_invoked: raw.last_invoked || null,
+      last_result: raw.last_result || null,
+      last_error: raw.last_error || null,
+      trigger_reason: raw.trigger_reason || null,
       ...def,
-      ...(agentStatuses[id] || {})
+      ...raw,
+      category: normalizeCategory(raw.category || def.category)
     };
   });
 
