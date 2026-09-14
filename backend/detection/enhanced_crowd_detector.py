@@ -47,7 +47,23 @@ class EnhancedCrowdDetector:
                      'botsort.yaml' (slower, includes Re-ID — better for
                      crowds where people cross paths / occlude each other)
         """
-        self.model = YOLO(model_path)
+        # Resolve model path across root or backend/ execution context
+        resolved_path = model_path
+        if not os.path.exists(resolved_path):
+            candidates = [
+                os.path.join(os.path.dirname(__file__), "..", model_path),
+                os.path.join(os.path.dirname(__file__), "..", "yolo11n.pt"),
+                os.path.join("/app", "backend", "yolo11n.pt"),
+                os.path.join("/app", "yolo11n.pt"),
+                "backend/yolo11n.pt",
+                "yolo11n.pt"
+            ]
+            for candidate in candidates:
+                if os.path.exists(candidate):
+                    resolved_path = os.path.abspath(candidate)
+                    break
+
+        self.model = YOLO(resolved_path)
         self.enable_tracking = enable_tracking
         self.input_size = input_size
         self.half_precision = half_precision

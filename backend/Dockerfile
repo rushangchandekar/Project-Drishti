@@ -28,6 +28,11 @@ RUN if [ -f /app/requirements.txt ]; then \
         pip install --no-cache-dir -r /app/backend/requirements.txt; \
     else \
         echo "Error: requirements.txt not found!" && exit 1; \
+    fi && \
+    if [ -f /app/backend/yolo11n.pt ] && [ ! -f /app/yolo11n.pt ]; then \
+        cp /app/backend/yolo11n.pt /app/yolo11n.pt; \
+    elif [ -f /app/yolo11n.pt ] && [ -d /app/backend ] && [ ! -f /app/backend/yolo11n.pt ]; then \
+        cp /app/yolo11n.pt /app/backend/yolo11n.pt; \
     fi
 
 # Expose FastAPI port
