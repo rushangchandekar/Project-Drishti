@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { API_BASE, getWsUrl } from '@/lib/api';
 
 export function useSystemStatus(isSetupComplete) {
   const [status, setStatus] = useState({
@@ -241,7 +242,7 @@ export function useSystemStatus(isSetupComplete) {
 
     const fetchAgentStatuses = async () => {
       try {
-        const res = await fetch('http://localhost:8000/agent-statuses');
+        const res = await fetch(`${API_BASE}/agent-statuses`);
         if (res.ok) {
           const agentData = await res.json();
           setAgentStatuses(agentData);
@@ -253,8 +254,7 @@ export function useSystemStatus(isSetupComplete) {
 
     const connectWebSocket = () => {
       try {
-        const host = typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
-        ws = new WebSocket(`ws://${host}:8000/ws/telemetry`);
+        ws = new WebSocket(getWsUrl('/ws/telemetry'));
 
         ws.onmessage = (event) => {
           try {
@@ -283,7 +283,7 @@ export function useSystemStatus(isSetupComplete) {
       if (fallbackInterval) return;
       fallbackInterval = setInterval(async () => {
         try {
-          const res = await fetch('http://localhost:8000/status');
+          const res = await fetch(`${API_BASE}/status`);
           if (res.ok) {
             const data = await res.json();
             handleData(data);

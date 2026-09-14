@@ -11,11 +11,12 @@ import AnalyticsCards from './analytics/AnalyticsCards';
 import AgentExecutionPanel from './ai/AgentExecutionPanel';
 import NotificationScreen from './notifications/NotificationScreen';
 import { useSystemStatus } from '../hooks/useSystemStatus';
+import { API_BASE } from '@/lib/api';
 
 export default function Dashboard() {
   const { status, alerts, agentFeed, autonomousActions, agentStatuses } = useSystemStatus(true);
   const [liveTime, setLiveTime] = useState(0); 
-  const [cameras, setCameras] = useState([{ id: 'cam0', name: 'Main Gate (Webcam)', type: 'webcam', path: '0', agent: 'VisionAgent', src: 'http://localhost:8000/video-feed' }]);
+  const [cameras, setCameras] = useState([{ id: 'cam0', name: 'Main Gate (Webcam)', type: 'webcam', path: '0', agent: 'VisionAgent', src: `${API_BASE}/video-feed` }]);
   const [activeCamera, setActiveCamera] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
   const [lastSeenAlertId, setLastSeenAlertId] = useState(null);
@@ -24,19 +25,19 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchVideos = async () => {
       try {
-        const response = await fetch('http://localhost:8000/list-videos');
+        const response = await fetch(`${API_BASE}/list-videos`);
         const data = await response.json();
         const videoCameras = (data.videos || []).map((vid, i) => ({
           id: `vid-${i}`,
           name: vid.name.replace(/\.[^/.]+$/, ""), // remove extension for name
-          src: `http://localhost:8000/data/${vid.name}`,
+          src: `${API_BASE}/data/${vid.name}`,
           type: 'file',
           path: vid.path,
           agent: vid.name.toLowerCase().includes('crowd') ? 'CrowdAgent' : 'VisionAgent'
         }));
         
         const allCameras = [
-          { id: 'cam0', name: 'Main Gate (Webcam)', type: 'webcam', path: '0', agent: 'VisionAgent', src: 'http://localhost:8000/video-feed' },
+          { id: 'cam0', name: 'Main Gate (Webcam)', type: 'webcam', path: '0', agent: 'VisionAgent', src: `${API_BASE}/video-feed` },
           ...videoCameras
         ];
         
@@ -44,7 +45,7 @@ export default function Dashboard() {
         setActiveCamera(allCameras[0]); // Default to webcam
       } catch (err) {
         console.error("Failed to fetch videos from server", err);
-        setActiveCamera({ id: 'cam0', name: 'Main Gate', type: 'webcam', path: '0', agent: 'VisionAgent', src: 'http://localhost:8000/video-feed' });
+        setActiveCamera({ id: 'cam0', name: 'Main Gate', type: 'webcam', path: '0', agent: 'VisionAgent', src: `${API_BASE}/video-feed` });
       }
     };
     fetchVideos();
@@ -52,7 +53,7 @@ export default function Dashboard() {
 
   const handleCameraSelect = async (cam) => {
     try {
-      await fetch('http://localhost:8000/switch-source', {
+      await fetch(`${API_BASE}/switch-source`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

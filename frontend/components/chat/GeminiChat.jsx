@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Minus, X, Send } from 'lucide-react';
+import { API_BASE } from '@/lib/api';
 
 export default function GeminiChat() {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,7 +20,7 @@ export default function GeminiChat() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/query', {
+      const response = await fetch(`${API_BASE}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question })

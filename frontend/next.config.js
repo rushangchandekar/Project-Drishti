@@ -1,3 +1,5 @@
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -13,7 +15,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8000/:path*',
+        destination: `${apiUrl.replace(/\/+$/, '')}/:path*`,
       },
     ];
   },

@@ -1,5 +1,6 @@
 'use client';
 import { motion } from 'framer-motion';
+import { API_BASE } from '@/lib/api';
 
 export default function LiveFeedOverlay({ activeCamera }) {
   return (
@@ -21,7 +22,7 @@ export default function LiveFeedOverlay({ activeCamera }) {
       }}
     >
       <img 
-        src="http://localhost:8000/video-feed" 
+        src={`${API_BASE}/video-feed`} 
         alt="Live Drone Feed" 
         style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
       />

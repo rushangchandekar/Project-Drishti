@@ -1,6 +1,7 @@
 'use client';
 import { motion } from 'framer-motion';
 import { Flame, AlertTriangle, Users, Flag } from 'lucide-react';
+import { API_BASE } from '@/lib/api';
 
 export default function SpatialMap({ status, activeCamera }) {
   // 3x3 Grid Method for zone-wise detection parsing backend data
@@ -20,7 +21,7 @@ export default function SpatialMap({ status, activeCamera }) {
     <div style={{ flex: 1, position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden', border: '1px solid var(--border-primary)', background: '#000' }}>
       
       {/* Base Feed - Always use backend processed MJPEG stream */}
-      <img src="http://localhost:8000/video-feed" alt="Camera Feed" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+      <img src={`${API_BASE}/video-feed`} alt="Camera Feed" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
 
       {/* Grid Overlay for Detection (3x3) */}
       <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' }}>
