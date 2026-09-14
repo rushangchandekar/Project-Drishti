@@ -63,7 +63,25 @@ class EnhancedCrowdDetector:
                     resolved_path = os.path.abspath(candidate)
                     break
 
-        self.model = YOLO(resolved_path)
+        import torch
+        # PyTorch 2.6+ compatibility for Ultralytics models
+        try:
+            from ultralytics.nn.tasks import DetectionModel
+            if hasattr(torch.serialization, "add_safe_globals"):
+                torch.serialization.add_safe_globals([DetectionModel])
+        except Exception:
+            pass
+
+        try:
+            self.model = YOLO(resolved_path)
+        except Exception as e:
+            # Fallback if torch.load default weights_only=True blocks loading
+            orig_load = torch.load
+            try:
+                torch.load = lambda *args, **kwargs: orig_load(*args, **{**kwargs, "weights_only": False})
+                self.model = YOLO(resolved_path)
+            finally:
+                torch.load = orig_load
         self.enable_tracking = enable_tracking
         self.input_size = input_size
         self.half_precision = half_precision
