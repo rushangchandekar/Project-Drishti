@@ -18,13 +18,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
-COPY requirements.txt* /app/requirements.txt
-RUN if [ ! -f /app/requirements.txt ]; then cp /app/backend/requirements.txt /app/requirements.txt 2>/dev/null || true; fi && \
-    pip install --no-cache-dir -r /app/requirements.txt
-
-# Copy codebase
+# Copy entire directory first or requirements specifically
 COPY . /app/
+
+# Install python dependencies
+RUN if [ -f /app/requirements.txt ]; then \
+        pip install --no-cache-dir -r /app/requirements.txt; \
+    elif [ -f /app/backend/requirements.txt ]; then \
+        pip install --no-cache-dir -r /app/backend/requirements.txt; \
+    else \
+        echo "Error: requirements.txt not found!" && exit 1; \
+    fi
 
 # Expose FastAPI port
 EXPOSE 8000
